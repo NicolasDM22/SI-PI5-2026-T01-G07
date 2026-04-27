@@ -1,0 +1,3 @@
+def send_alert(message: str, recipient: str) -> None:
+    """Envia notificação de alerta para o destinatário."""
+    ...

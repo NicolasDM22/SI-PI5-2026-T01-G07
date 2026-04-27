@@ -1,0 +1,3 @@
+def run_inference(frame_path: str) -> dict:
+    """Executa detecção YOLO no frame e retorna as detecções."""
+    ...

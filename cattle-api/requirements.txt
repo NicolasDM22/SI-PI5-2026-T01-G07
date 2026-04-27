@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlmodel
+opencv-python
+ultralytics
+fpdf2
+python-multipart
+websockets
+python-dotenv
