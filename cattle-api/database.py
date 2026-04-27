@@ -1,15 +1,13 @@
-import os
-from dotenv import load_dotenv
 from sqlmodel import SQLModel, Session, create_engine
 
-load_dotenv()
+import models.job  # noqa: F401 — garante que o model é registrado no metadata
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cattle.db")
+DATABASE_URL = "sqlite:///./database.db"
 
 engine = create_engine(DATABASE_URL, echo=False)
 
 
-def create_db_and_tables() -> None:
+def init_db() -> None:
     SQLModel.metadata.create_all(engine)
 
 
