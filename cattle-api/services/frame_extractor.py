@@ -1,0 +1,3 @@
+def extract_frames(video_path: str, output_dir: str) -> list[str]:
+    """Extrai frames do vídeo e salva em output_dir. Retorna lista de caminhos dos frames."""
+    ...

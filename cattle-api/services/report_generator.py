@@ -1,0 +1,3 @@
+def generate_report(job_id: int, results: list[dict]) -> str:
+    """Gera PDF com os resultados do job e retorna o caminho do arquivo."""
+    ...
