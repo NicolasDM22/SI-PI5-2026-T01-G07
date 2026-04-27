@@ -1,0 +1,26 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+*
+*/.txt
+*/.png
+*/.jpg
+*/.jpeg
+*/.gif
+*/.bmp
+*/.svg
+*/.ico
+*/.pdf
+*/.doc
+*/.docx
+*/.xls
+*/.xlsx
+*/.ppt
+*/.pptx
+
+# Ignore image files recursively
+*.txt
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
