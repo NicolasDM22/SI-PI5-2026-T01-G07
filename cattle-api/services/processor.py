@@ -1,0 +1,3 @@
+def process_job(job_id: int) -> None:
+    """Orquestra o pipeline completo: extração de frames → inferência → relatório → notificação."""
+    ...
