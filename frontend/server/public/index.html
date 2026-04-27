@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>AgriMonitor — Drone</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #000;
+      color: #fff;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── Header ── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      padding-top: max(14px, env(safe-area-inset-top));
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+    }
+    #logo { font-size: 16px; font-weight: 700; color: #52b788; letter-spacing: 0.3px; }
+    #conn-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+      padding: 5px 10px; border-radius: 20px;
+      background: rgba(255,255,255,0.1);
+    }
+    #conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca89e; }
+    #conn-dot.ok { background: #52b788; }
+    #conn-dot.err { background: #e63946; }
+
+    /* ── Camera ── */
+    #camera-wrap {
+      flex: 1;
+      position: relative;
+      background: #111;
+      overflow: hidden;
+    }
+    #video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ── Recording overlay ── */
+    #rec-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      display: none;
+    }
+    #rec-overlay.active { display: block; }
+    #rec-badge {
+      position: absolute;
+      top: 70px; left: 16px;
+      background: rgba(230, 57, 70, 0.88);
+      border-radius: 20px;
+      padding: 5px 12px;
+      display: flex; align-items: center; gap: 7px;
+      font-size: 13px; font-weight: 700;
+    }
+    #rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    #frame-badge {
+      position: absolute;
+      top: 70px; right: 16px;
+      background: rgba(0,0,0,0.55);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 13px; font-weight: 600; color: #fff;
+    }
+
+    /* ── Bottom controls ── */
+    #controls {
+      background: rgba(10, 20, 12, 0.95);
+      backdrop-filter: blur(20px);
+      padding: 20px 24px;
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #timer {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 200;
+      letter-spacing: 2px;
+      color: #e8f5e9;
+      font-variant-numeric: tabular-nums;
+      display: none;
+    }
+    #timer.active { display: block; }
+
+    #main-btn {
+      width: 100%;
+      padding: 18px;
+      border-radius: 16px;
+      border: none;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .1s, opacity .1s;
+      letter-spacing: 0.3px;
+    }
+    #main-btn:active { transform: scale(0.97); opacity: 0.85; }
+    #main-btn.start { background: #2d6a4f; color: #fff; }
+    #main-btn.stop  { background: #e63946; color: #fff; }
+    #main-btn:disabled { opacity: 0.4; }
+
+    #status-msg {
+      text-align: center;
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+      min-height: 18px;
+    }
+
+    /* ── Permission / error screens ── */
+    #perm-screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 32px;
+      text-align: center;
+    }
+    #perm-screen.visible { display: flex; }
+    #perm-screen .icon { font-size: 56px; }
+    #perm-screen h2 { font-size: 20px; color: #e8f5e9; }
+    #perm-screen p { font-size: 14px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+    #perm-btn {
+      background: #2d6a4f; color: #fff;
+      border: none; border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 16px; font-weight: 600;
+      cursor: pointer; width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div id="header">
+    <div id="logo">🐄 AgriMonitor</div>
+    <div id="conn-status">
+      <div id="conn-dot"></div>
+      <span id="conn-text">Conectando...</span>
+    </div>
+  </div>
+
+  <!-- Camera -->
+  <div id="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none"></canvas>
+
+    <div id="rec-overlay">
+      <div id="rec-badge">
+        <div id="rec-dot"></div>
+        <span id="rec-timer">00:00</span>
+      </div>
+      <div id="frame-badge">📷 <span id="frame-count">0</span></div>
+    </div>
+
+    <div id="perm-screen">
+      <div class="icon">📷</div>
+      <h2>Câmera necessária</h2>
+      <p>Para simular o drone, precisamos de acesso à câmera traseira.</p>
+      <button class="perm-btn" id="perm-btn" onclick="initCamera()">Permitir câmera</button>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <div id="timer">00:00</div>
+    <button id="main-btn" class="start" onclick="handleMainBtn()" disabled>
+      🚁 Iniciar Voo
+    </button>
+    <div id="status-msg">Aguardando câmera e conexão com servidor...</div>
+  </div>
+
+<script>
+  // ── Config ─────────────────────────────────
+  const SERVER_HTTPS = `https://${location.hostname}:3001`;
+  const FRAME_INTERVAL_MS = 1500;
+
+  // ── State ───────────────────────────────────
+  let isFlying = false;
+  let flightId = null;
+  let frameCount = 0;
+  let startTime = null;
+  let captureInterval = null;
+  let timerInterval = null;
+  let cameraReady = false;
+  let serverOk = false;
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // ── Camera ──────────────────────────────────
+  async function initCamera() {
+    document.getElementById('perm-screen').classList.remove('visible');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      video.srcObject = stream;
+      cameraReady = true;
+      updateBtn();
+      setStatus('Pronto. Toque em "Iniciar Voo" quando quiser começar.');
+    } catch (err) {
+      document.getElementById('perm-screen').classList.add('visible');
+      setStatus('Permissão de câmera negada.');
+    }
+  }
+
+  video.addEventListener('loadedmetadata', () => {
+    cameraReady = true;
+    updateBtn();
+  });
+
+  // ── Server status ────────────────────────────
+  async function checkServer() {
+    try {
+      const r = await fetch(`${SERVER_HTTPS}/api/status`);
+      if (r.ok) {
+        serverOk = true;
+        setConn(true);
+        updateBtn();
+      }
+    } catch {
+      serverOk = false;
+      setConn(false);
+      updateBtn();
+    }
+  }
+
+  setInterval(checkServer, 3000);
+  checkServer();
+
+  // ── Frame capture ────────────────────────────
+  function captureFrame() {
+    if (!video.videoWidth) return null;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.55);
+  }
+
+  async function sendFrame(base64) {
+    if (!flightId) return;
+    try {
+      await fetch(`${SERVER_HTTPS}/api/flight/${flightId}/frame`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, ts: Date.now() }),
+      });
+      frameCount++;
+      document.getElementById('frame-count').textContent = frameCount;
+    } catch (e) {
+      // frame perdido — continua
+    }
+  }
+
+  // ── Flight control ───────────────────────────
+  async function startFlight() {
+    try {
+      setStatus('Iniciando voo...');
+      const r = await fetch(`${SERVER_HTTPS}/api/flight/start`, { method: 'POST' });
+      if (!r.ok) { setStatus('Erro ao iniciar voo. Tente novamente.'); return; }
+      const data = await r.json();
+      flightId = data.flightId;
+      isFlying = true;
+      frameCount = 0;
+      startTime = Date.now();
+
+      document.getElementById('rec-overlay').classList.add('active');
+      document.getElementById('timer').classList.add('active');
+      document.getElementById('main-btn').className = 'stop';
+      document.getElementById('main-btn').textContent = '⏹ Encerrar Voo';
+
+      captureInterval = setInterval(async () => {
+        const b64 = captureFrame();
+        if (b64) await sendFrame(b64);
+      }, FRAME_INTERVAL_MS);
+
+      timerInterval = setInterval(updateTimer, 1000);
+      setStatus('Transmitindo frames para o servidor...');
+    } catch {
+      setStatus('Sem conexão com o servidor.');
+    }
+  }
+
+  async function stopFlight() {
+    clearInterval(captureInterval);
+    clearInterval(timerInterval);
+    captureInterval = null;
+    timerInterval = null;
+
+    document.getElementById('rec-overlay').classList.remove('active');
+    document.getElementById('timer').classList.remove('active');
+    document.getElementById('main-btn').disabled = true;
+
+    try {
+      await fetch(`${SERVER_HTTPS}/api/flight/${flightId}/stop`, { method: 'POST' });
+    } catch {}
+
+    setStatus(`Voo encerrado. ${frameCount} frames transmitidos.`);
+    document.getElementById('main-btn').className = 'start';
+    document.getElementById('main-btn').textContent = '🚁 Novo Voo';
+    document.getElementById('main-btn').disabled = false;
+    isFlying = false;
+    flightId = null;
+  }
+
+  function handleMainBtn() {
+    if (isFlying) stopFlight();
+    else startFlight();
+  }
+
+  // ── UI helpers ───────────────────────────────
+  function updateBtn() {
+    const btn = document.getElementById('main-btn');
+    btn.disabled = !(cameraReady && serverOk);
+    if (cameraReady && serverOk && !isFlying) {
+      setStatus('Pronto. Toque em "Iniciar Voo" para começar.');
+    }
+  }
+
+  function updateTimer() {
+    const secs = Math.floor((Date.now() - startTime) / 1000);
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    document.getElementById('rec-timer').textContent = `${m}:${s}`;
+    document.getElementById('timer').textContent = `${m}:${s}`;
+  }
+
+  function setConn(ok) {
+    document.getElementById('conn-dot').className = ok ? 'ok' : 'err';
+    document.getElementById('conn-text').textContent = ok ? 'Servidor OK' : 'Sem servidor';
+  }
+
+  function setStatus(msg) {
+    document.getElementById('status-msg').textContent = msg;
+  }
+
+  // ── Init ─────────────────────────────────────
+  initCamera();
+</script>
+</body>
+</html>

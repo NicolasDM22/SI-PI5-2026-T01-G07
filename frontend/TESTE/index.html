@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h2>Camera</h2>
+  <video id="video" autoplay playsinline></video>
+
+  <script>
+    const video = document.getElementById('video');
+
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    })
+    .then(stream => {
+      video.srcObject = stream;
+    });
+
+    // envia frame a cada 1s
+    setInterval(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+
+      const data = canvas.toDataURL('image/jpeg');
+
+      fetch('/frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: data })
+      });
+    }, 1000);
+  </script>
+</body>
+</html>
