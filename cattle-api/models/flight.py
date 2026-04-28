@@ -23,4 +23,5 @@ class Flight(SQLModel, table=True):
     ai_sync_status: str = Field(default="pending")  # pending | sent | failed
     frame_count: Optional[int] = Field(default=None)
     video_path: Optional[str] = Field(default=None)
+    report_path: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
