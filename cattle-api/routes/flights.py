@@ -33,10 +33,12 @@ def _serialize(flight: Flight) -> dict:
 
 
 @router.get("/")
-def list_flights(farmId: Optional[str] = None, session: Session = Depends(get_session)):
+def list_flights(farmId: Optional[str] = None, pastureId: Optional[str] = None, session: Session = Depends(get_session)):
     query = select(Flight).order_by(Flight.created_at.desc())
     if farmId:
         query = query.where(Flight.farm_id == farmId)
+    if pastureId:
+        query = query.where(Flight.pasture_id == pastureId)
     return [_serialize(f) for f in session.exec(query).all()]
 
 

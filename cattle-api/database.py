@@ -4,7 +4,7 @@ import models.flight  # noqa: F401 — registra o model no metadata
 
 DATABASE_URL = "sqlite:///./database.db"
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 
 
 def init_db() -> None:
