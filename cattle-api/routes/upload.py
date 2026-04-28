@@ -22,6 +22,7 @@ async def upload_flight(
     background_tasks: BackgroundTasks,
     video: UploadFile = File(...),
     pastureId: str = Form(...),
+    farmId: str = Form(...),
     flightDate: str = Form(...),
     altitudeEstimated: Optional[float] = Form(None),
     notes: Optional[str] = Form(None),
@@ -51,6 +52,7 @@ async def upload_flight(
     flight = Flight(
         id=flight_id,
         pasture_id=pastureId,
+        farm_id=farmId,
         start_ts=datetime.fromisoformat(flightDate),
         altitude_estimated=altitudeEstimated,
         notes=notes,
