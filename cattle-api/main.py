@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from database import init_db
-from routes import jobs, stream, upload
+from routes import flights, stream, upload
 
 
 @asynccontextmanager
@@ -19,8 +19,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(upload.router, prefix="/upload", tags=["upload"])
-app.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
+# upload antes de flights para evitar que "upload" seja capturado como {flight_id}
+app.include_router(upload.router, tags=["upload"])
+app.include_router(flights.router, prefix="/flights", tags=["flights"])
 app.include_router(stream.router, prefix="/stream", tags=["stream"])
 
 
