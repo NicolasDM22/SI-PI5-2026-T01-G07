@@ -1,3 +1,3 @@
-def process_job(job_id: int) -> None:
+def process_video(flight_id: str) -> None:
     """Orquestra o pipeline completo: extração de frames → inferência → relatório → notificação."""
     ...
