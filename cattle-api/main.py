@@ -4,11 +4,13 @@ from fastapi import FastAPI
 
 from database import init_db
 from routes import flights, stream, upload
+from services.ai_inference import load_model
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    load_model()
     yield
 
 

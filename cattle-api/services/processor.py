@@ -28,14 +28,26 @@ def process_video(flight_id: str) -> None:
         try:
             frames = extract_frames(flight.video_path, flight_id)
 
-            results = []
-            for frame in frames:
-                result = run_inference(frame)
-                if result:
-                    results.append(result)
+            # Executa inferência em todos os frames de uma vez
+            inference_result = run_inference(frames, flight_id)
+            
+            if not inference_result:
+                logger.error(f"Falha na inferência para o voo {flight_id}")
+                _mark_failed(session, flight)
+                cleanup_frames(flight_id)
+                return
 
-            detected_count = max((r.get("count", 0) for r in results), default=0) if results else None
-            report_path = generate_report(flight_id, results)
+            detected_count = inference_result.get("cattle_count", 0)
+            confidence_avg = inference_result.get("confidence_avg", 0.0)
+            annotated_path = inference_result.get("annotated_image_path")
+
+            # Gera relatório com os resultados da inferência
+            report_data = {
+                "cattle_count": detected_count,
+                "confidence_avg": confidence_avg,
+                "annotated_image_path": annotated_path,
+            }
+            report_path = generate_report(flight_id, report_data)
 
             flight.status = "completed"
             flight.frame_count = len(frames)
@@ -45,7 +57,10 @@ def process_video(flight_id: str) -> None:
             session.add(flight)
             session.commit()
 
-            logger.info(f"Voo {flight_id} concluído: {detected_count} animais detectados em {len(frames)} frames")
+            logger.info(
+                f"Voo {flight_id} concluído: {detected_count} animais detectados em {len(frames)} frames "
+                f"(confiança média: {confidence_avg:.2f})"
+            )
 
         except Exception as e:
             logger.error(f"Erro ao processar voo {flight_id}: {e}")
