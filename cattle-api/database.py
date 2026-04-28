@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Session, create_engine
 
-import models.job  # noqa: F401 — garante que o model é registrado no metadata
+import models.flight  # noqa: F401 — registra o model no metadata
 
 DATABASE_URL = "sqlite:///./database.db"
 
