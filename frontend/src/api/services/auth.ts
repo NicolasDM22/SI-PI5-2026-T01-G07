@@ -1,7 +1,7 @@
 import { User } from '../../types';
 import { apiClient } from '../client';
 
-const USE_LOCAL_FALLBACK = true; // Troque para false quando a API estiver pronta
+const USE_LOCAL_FALLBACK = false;
 
 export interface LoginPayload {
   email: string;
@@ -35,8 +35,5 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 }
 
 export async function logout(): Promise<void> {
-  if (USE_LOCAL_FALLBACK) {
-    return;
-  }
-  await apiClient.post('/auth/logout');
+  return;
 }

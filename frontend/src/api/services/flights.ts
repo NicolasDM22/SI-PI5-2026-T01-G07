@@ -2,7 +2,7 @@ import { Flight } from '../../types';
 import { apiClient } from '../client';
 import { useFlightHistoryStore } from '../../store/flightHistoryStore';
 
-const USE_LOCAL_FALLBACK = true;
+const USE_LOCAL_FALLBACK = false;
 
 export async function getFlights(farmId?: string): Promise<Flight[]> {
   if (USE_LOCAL_FALLBACK) {
@@ -27,10 +27,12 @@ export async function getFlightById(id: string): Promise<Flight> {
 
 export interface UploadFlightPayload {
   pastureId: string;
+  farmId: string;
   flightDate: string;
   altitudeEstimated?: number;
   notes?: string;
   videoUri: string;
+  videoFile?: File;
 }
 
 export async function uploadFlight(payload: UploadFlightPayload): Promise<{ flightId: string }> {
@@ -49,10 +51,15 @@ export async function uploadFlight(payload: UploadFlightPayload): Promise<{ flig
 
   const formData = new FormData();
   formData.append('pastureId', payload.pastureId);
+  formData.append('farmId', payload.farmId);
   formData.append('flightDate', payload.flightDate);
   if (payload.altitudeEstimated) formData.append('altitudeEstimated', String(payload.altitudeEstimated));
   if (payload.notes) formData.append('notes', payload.notes);
-  formData.append('video', { uri: payload.videoUri, type: 'video/mp4', name: 'flight.mp4' } as any);
+  if (payload.videoFile) {
+    formData.append('video', payload.videoFile, payload.videoFile.name);
+  } else {
+    formData.append('video', { uri: payload.videoUri, type: 'video/mp4', name: 'flight.mp4' } as any);
+  }
 
   const { data } = await apiClient.post<{ flightId: string }>('/flights/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
