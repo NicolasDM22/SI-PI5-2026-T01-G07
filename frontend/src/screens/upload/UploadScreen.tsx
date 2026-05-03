@@ -6,10 +6,8 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUploadQueueStore } from '../../store/uploadQueueStore';
-import { getPastures } from '../../api/services/farms';
-import { getMyFarm } from '../../api/services/farms';
-import { useFlightHistoryStore } from '../../store/flightHistoryStore';
-import { submitFlightForAi } from '../../api/services/ai';
+import { getPastures, getMyFarm } from '../../api/services/farms';
+import { uploadFlight } from '../../api/services/flights';
 import { colors, radius, shadows, spacing, typography } from '../../theme';
 import { UploadItem, UploadStatus } from '../../types';
 import { formatFileSize, formatRelativeTime } from '../../utils/format';
@@ -28,13 +26,12 @@ const uploadStatusConfig: Record<UploadStatus, { label: string; color: string }>
 
 export function UploadScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
-  const [selectedFile, setSelectedFile] = useState<{ uri: string; name: string; size: number } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{ uri: string; name: string; size: number; file?: File } | null>(null);
   const [selectedPastureId, setSelectedPastureId] = useState('');
   const [notes, setNotes] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
   const { queue, addToQueue, removeFromQueue, updateStatus } = useUploadQueueStore();
-  const registerFlight = useFlightHistoryStore((s) => s.registerFlight);
   const { data: farm } = useQuery({ queryKey: ['farm'], queryFn: getMyFarm });
   const { data: pastures } = useQuery({
     queryKey: ['pastures', farm?.id],
@@ -53,11 +50,12 @@ export function UploadScreen({ navigation }: Props) {
         uri: asset.uri,
         name: asset.name,
         size: asset.size ?? 0,
+        file: (asset as any).file,
       });
     }
   }
 
-  function addToQueueHandler() {
+  async function addToQueueHandler() {
     if (!selectedFile) {
       Alert.alert('Selecione um vídeo', 'Escolha o arquivo de vídeo antes de continuar.');
       return;
@@ -68,48 +66,41 @@ export function UploadScreen({ navigation }: Props) {
     }
 
     const pasture = pastures?.find((p) => p.id === selectedPastureId);
+    const fileToUpload = selectedFile;
+    const pastureToUpload = selectedPastureId;
+    const notesToUpload = notes.trim() || undefined;
+
     setIsAdding(true);
 
-    setTimeout(() => {
-      const queued = addToQueue({
-        localUri: selectedFile.uri,
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        pastureId: selectedPastureId,
-        pastureName: pasture?.name ?? 'Pasto desconhecido',
+    const queued = addToQueue({
+      localUri: fileToUpload.uri,
+      fileName: fileToUpload.name,
+      fileSize: fileToUpload.size,
+      pastureId: pastureToUpload,
+      pastureName: pasture?.name ?? 'Pasto desconhecido',
+      flightDate: new Date().toISOString(),
+    });
+
+    setSelectedFile(null);
+    setSelectedPastureId('');
+    setNotes('');
+    setIsAdding(false);
+
+    updateStatus(queued.id, 'uploading', 30);
+    try {
+      await uploadFlight({
+        pastureId: pastureToUpload,
+        farmId: farm?.id ?? 'farm-local',
         flightDate: new Date().toISOString(),
+        notes: notesToUpload,
+        videoUri: fileToUpload.uri,
+        videoFile: fileToUpload.file,
       });
-
-      const startTs = new Date().toISOString();
-      updateStatus(queued.id, 'uploading', 25);
-      setTimeout(() => updateStatus(queued.id, 'uploading', 60), 500);
-      setTimeout(() => updateStatus(queued.id, 'processing', 90), 1000);
-      setTimeout(async () => {
-        const endTs = new Date().toISOString();
-        const createdFlight = registerFlight({
-          pastureId: selectedPastureId,
-          pastureName: pasture?.name ?? 'Pasto desconhecido',
-          farmId: farm?.id,
-          startTs,
-          endTs,
-          notes: notes.trim() || undefined,
-          source: 'upload',
-        });
-        await submitFlightForAi({
-          flightId: createdFlight.id,
-          source: 'upload',
-          videoUri: selectedFile.uri,
-          metadata: { pastureId: selectedPastureId, pastureName: pasture?.name ?? 'Pasto desconhecido' },
-        });
-        updateStatus(queued.id, 'done', 100);
-        queryClient.invalidateQueries({ queryKey: ['flights'] });
-      }, 1600);
-
-      setSelectedFile(null);
-      setSelectedPastureId('');
-      setNotes('');
-      setIsAdding(false);
-    }, 300);
+      updateStatus(queued.id, 'done', 100);
+      queryClient.invalidateQueries({ queryKey: ['flights'] });
+    } catch {
+      updateStatus(queued.id, 'error', 0, 'Falha no envio. Tente novamente.');
+    }
   }
 
   function handleRetry(item: UploadItem) {

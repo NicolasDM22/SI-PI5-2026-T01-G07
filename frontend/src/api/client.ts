@@ -1,19 +1,17 @@
 import axios from 'axios';
+import { useAuthStore } from '../store/authStore';
 
-// Troque pela URL real da API quando disponível
-const BASE_URL = 'https://api.seudominio.com/v1';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Injeta o token JWT em todas as requisições
 apiClient.interceptors.request.use((config) => {
-  // TODO: pegar token do authStore quando API estiver pronta
-  // const token = useAuthStore.getState().token;
-  // if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = useAuthStore.getState().token;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 

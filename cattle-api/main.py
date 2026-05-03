@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
-from routes import flights, stream, upload
+from routes import auth, flights, stream, upload
 
 
 @asynccontextmanager
@@ -19,6 +20,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
 # upload antes de flights para evitar que "upload" seja capturado como {flight_id}
 app.include_router(upload.router, tags=["upload"])
 app.include_router(flights.router, prefix="/flights", tags=["flights"])
