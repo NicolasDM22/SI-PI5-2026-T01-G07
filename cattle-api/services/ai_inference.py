@@ -96,6 +96,7 @@ def _run_inference_mock(
 ) -> dict:
     """
     Versão mock da inferência usando dados simulados.
+    Rastreia qual frame teve a maior contagem de gado.
     """
     logger.info(f"🔬 Executando inferência MOCK para {len(frame_paths)} frames (job_id: {job_id})")
     
@@ -104,79 +105,78 @@ def _run_inference_mock(
         if not frame_paths:
             logger.info("✅ Mock Inferência concluída: sem frames (cattle_count=0)")
             return {
-                "cattle_count": 0,
-                "annotated_image_path": None,
+                "cattle_count_avg": 0,
+                "cattle_count_max": 0,
+                "max_count_frame_path": None,
                 "confidence_avg": 0.0,
             }
         
-        # Simula detecções com números aleatórios
-        np.random.seed(hash(job_id) % (2**32))  # Para reproducibilidade por job_id
+        # Processa cada frame e rastreia o de maior contagem
+        all_counts = []
+        all_confidences = []
+        max_count = 0
+        max_count_idx = 0
         
-        cattle_count = np.random.randint(5, 25)
-        confidence_scores = np.random.uniform(0.75, 0.99, cattle_count)
-        confidence_avg = float(np.mean(confidence_scores))
+        for idx, frame_path in enumerate(frame_paths):
+            # Simula detecções com números aleatórios
+            np.random.seed(hash(f"{job_id}_{idx}") % (2**32))  # Seed por frame
+            
+            cattle_count = np.random.randint(5, 25)
+            confidence_scores = np.random.uniform(0.75, 0.99, cattle_count)
+            
+            all_counts.append(cattle_count)
+            all_confidences.extend(confidence_scores)
+            
+            # Rastreia o frame com maior contagem
+            if cattle_count > max_count:
+                max_count = cattle_count
+                max_count_idx = idx
         
-        # Lê o primeiro frame
-        frame = cv2.imread(frame_paths[0])
+        # Calcula médias
+        cattle_count_avg = float(np.mean(all_counts))
+        confidence_avg = float(np.mean(all_confidences)) if all_confidences else 0.0
+        
+        # Processa o frame com maior contagem para salvar anotação
+        best_frame_path = frame_paths[max_count_idx]
+        frame = cv2.imread(best_frame_path)
         if frame is None:
-            logger.warning(f"Não foi possível ler frame: {frame_paths[0]}")
+            logger.warning(f"Não foi possível ler frame: {best_frame_path}")
             frame = np.zeros((720, 1280, 3), dtype=np.uint8)
         
-        # Desenha retângulos aleatórios simulando detecções
+        # Desenha retângulos no frame com maior contagem
         frame_annotated = frame.copy()
-        for i in range(cattle_count):
+        np.random.seed(hash(f"{job_id}_{max_count_idx}") % (2**32))
+        confidence_scores = np.random.uniform(0.75, 0.99, max_count)
+        
+        for i in range(max_count):
             x = np.random.randint(50, frame_annotated.shape[1] - 150)
             y = np.random.randint(50, frame_annotated.shape[0] - 150)
             w = np.random.randint(80, 150)
             h = np.random.randint(80, 150)
             
-            # Desenha retângulo verde
-            cv2.rectangle(
-                frame_annotated,
-                (x, y),
-                (x + w, y + h),
-                (0, 255, 0),
-                2
-            )
-            
-            # Adiciona confiança no topo do retângulo
+            cv2.rectangle(frame_annotated, (x, y), (x + w, y + h), (0, 255, 0), 2)
             label = f"Cattle {confidence_scores[i]:.2f}"
-            cv2.putText(
-                frame_annotated,
-                label,
-                (x, y - 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 255, 0),
-                2
-            )
+            cv2.putText(frame_annotated, label, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         
-        # Adiciona info no canto da imagem
-        info_text = f"Mock Detection | Cattle: {cattle_count} | Avg Conf: {confidence_avg:.2f}"
-        cv2.putText(
-            frame_annotated,
-            info_text,
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (255, 255, 0),
-            2
-        )
+        # Adiciona info no canto
+        info_text = f"Max Frame | Cattle: {max_count} | Avg Conf: {confidence_avg:.2f}"
+        cv2.putText(frame_annotated, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         
-        # Salva a imagem anotada
-        annotated_path = os.path.join(output_dir, "annotated.jpg")
+        # Salva a imagem anotada do frame com maior contagem
+        annotated_path = os.path.join(output_dir, "annotated_max_count.jpg")
         cv2.imwrite(annotated_path, frame_annotated)
-        logger.info(f"✅ Imagem anotada salva: {annotated_path}")
+        logger.info(f"✅ Imagem do frame de maior contagem salva: {annotated_path}")
         
         result = {
-            "cattle_count": cattle_count,
-            "annotated_image_path": annotated_path,
+            "cattle_count_avg": cattle_count_avg,
+            "cattle_count_max": max_count,
+            "max_count_frame_path": annotated_path,
             "confidence_avg": confidence_avg,
         }
         
         logger.info(
             f"🔬 Mock Inferência concluída: "
-            f"cattle_count={cattle_count}, confidence_avg={confidence_avg:.2f}"
+            f"frames={len(frame_paths)}, avg={cattle_count_avg:.2f}, max={max_count}, conf_avg={confidence_avg:.2f}"
         )
         
         return result
@@ -184,11 +184,13 @@ def _run_inference_mock(
     except Exception as e:
         logger.error(f"Erro na inferência mock: {e}")
         return {
-            "cattle_count": 0,
-            "annotated_image_path": None,
+            "cattle_count_avg": 0,
+            "cattle_count_max": 0,
+            "max_count_frame_path": None,
             "confidence_avg": 0.0,
             "error": str(e),
         }
+
 
 
 def _run_inference_yolo(
@@ -196,43 +198,50 @@ def _run_inference_yolo(
 ) -> dict:
     """
     Versão real da inferência usando o modelo YOLO.
+    Rastreia qual frame teve a maior contagem de gado.
     """
     logger.info(f"🤖 Executando inferência YOLO para {len(frame_paths)} frames (job_id: {job_id})")
     
     try:
-        all_detections = []
         all_confidences = []
-        frame_annotated = None
+        frame_counts = []
+        max_count = 0
+        max_count_idx = 0
+        max_count_frame = None
         
         # Processa cada frame
-        for frame_path in frame_paths:
+        for idx, frame_path in enumerate(frame_paths):
             if not os.path.exists(frame_path):
                 logger.warning(f"Frame não encontrado: {frame_path}")
+                frame_counts.append(0)
                 continue
             
             frame = cv2.imread(frame_path)
             if frame is None:
                 logger.warning(f"Erro ao ler frame: {frame_path}")
+                frame_counts.append(0)
                 continue
             
             # Roda o modelo YOLO
             results = _model(frame)
             
+            frame_detections = 0
+            frame_copy = frame.copy()
+            
             # Extrai detecções
             for result in results:
                 boxes = result.boxes
+                frame_detections = len(boxes)
                 
                 for box in boxes:
-                    # Verifica se é uma detecção de cattle (classe específica)
-                    # YOLO retorna: xyxy (4), confidence (1), class (1)
                     conf = float(box.conf[0])
                     all_confidences.append(conf)
                     
                     # Desenha bounding box
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.rectangle(frame_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(
-                        frame,
+                        frame_copy,
                         f"{conf:.2f}",
                         (x1, y1 - 5),
                         cv2.FONT_HERSHEY_SIMPLEX,
@@ -241,32 +250,37 @@ def _run_inference_yolo(
                         2
                     )
             
-            # Guarda o último frame anotado
-            frame_annotated = frame
-            all_detections.append(len(boxes))
+            frame_counts.append(frame_detections)
+            
+            # Rastreia o frame com maior contagem
+            if frame_detections > max_count:
+                max_count = frame_detections
+                max_count_idx = idx
+                max_count_frame = frame_copy
         
         # Calcula estatísticas
-        cattle_count = sum(all_detections) if all_detections else 0
+        cattle_count_avg = float(np.mean(frame_counts)) if frame_counts else 0.0
         confidence_avg = float(np.mean(all_confidences)) if all_confidences else 0.0
         
-        # Salva a imagem anotada (usa o último frame processado)
-        annotated_path = os.path.join(output_dir, "annotated.jpg")
-        if frame_annotated is not None:
-            cv2.imwrite(annotated_path, frame_annotated)
-            logger.info(f"✅ Imagem anotada salva: {annotated_path}")
+        # Salva a imagem anotada do frame com maior contagem
+        annotated_path = os.path.join(output_dir, "annotated_max_count.jpg")
+        if max_count_frame is not None:
+            cv2.imwrite(annotated_path, max_count_frame)
+            logger.info(f"✅ Imagem do frame de maior contagem salva: {annotated_path}")
         else:
             annotated_path = None
             logger.warning("Nenhum frame foi processado")
         
         result = {
-            "cattle_count": cattle_count,
-            "annotated_image_path": annotated_path,
+            "cattle_count_avg": cattle_count_avg,
+            "cattle_count_max": max_count,
+            "max_count_frame_path": annotated_path,
             "confidence_avg": confidence_avg,
         }
         
         logger.info(
             f"✅ YOLO Inferência concluída: "
-            f"cattle_count={cattle_count}, confidence_avg={confidence_avg:.2f}"
+            f"frames={len(frame_paths)}, avg={cattle_count_avg:.2f}, max={max_count}, conf_avg={confidence_avg:.2f}"
         )
         
         return result
@@ -274,8 +288,9 @@ def _run_inference_yolo(
     except Exception as e:
         logger.error(f"Erro na inferência YOLO: {e}")
         return {
-            "cattle_count": 0,
-            "annotated_image_path": None,
+            "cattle_count_avg": 0,
+            "cattle_count_max": 0,
+            "max_count_frame_path": None,
             "confidence_avg": 0.0,
             "error": str(e),
         }
