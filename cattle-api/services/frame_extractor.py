@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import logging
 import os
 import shutil
 from pathlib import Path
+from typing import List
 
 import cv2
 
 logger = logging.getLogger(__name__)
 
 
-def extract_frames(video_path: str, flight_id: str) -> list[str]:
+def extract_frames(video_path: str, flight_id: str) -> List[str]:
     """
     Extrai frames de um vídeo (1 frame por segundo) usando OpenCV.
 
