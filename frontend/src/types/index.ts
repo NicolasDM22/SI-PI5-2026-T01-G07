@@ -49,21 +49,23 @@ export type AiSyncStatus = 'pending' | 'sent' | 'failed';
 
 export interface Flight {
   id: string;
+  name?: string;
   pastureId: string;
-  pastureName: string;
-  farmId: string;
-  operatorId: string;
+  pastureName?: string;
+  farmId?: string;
+  operatorId?: string;
   startTs: string;
-  endTs: string;
-  altitudeEstimated: number;
+  endTs?: string;
+  altitudeEstimated?: number;
   status: FlightStatus;
-  detectedCount: number;
-  expectedCount: number;
+  detectedCount?: number;
+  expectedCount?: number;
   alertsCount: number;
   notes?: string;
   source?: FlightSource;
   aiSyncStatus?: AiSyncStatus;
   frameCount?: number;
+  thumbnailUrl?: string;
 }
 
 export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'error';
