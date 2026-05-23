@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,13 +8,17 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models.flight import Flight
+from services.ai_inference import run_inference, run_inference_batch
 
 router = APIRouter()
+
+_FRAMES_DIR = Path("outputs") / "frames"
 
 
 def _serialize(flight: Flight) -> dict:
     return {
         "id": flight.id,
+        "name": flight.name,
         "pastureId": flight.pasture_id,
         "pastureName": flight.pasture_name,
         "farmId": flight.farm_id,
@@ -48,17 +53,57 @@ def get_flight_report(flight_id: str, session: Session = Depends(get_session)):
     if not flight:
         raise HTTPException(status_code=404, detail="Voo não encontrado.")
     if not flight.report_path:
-        raise HTTPException(
-            status_code=404,
-            detail="Relatório ainda não disponível. O voo pode estar em processamento.",
-        )
+        raise HTTPException(status_code=404, detail="Relatório ainda não disponível.")
     if not os.path.exists(flight.report_path):
         raise HTTPException(status_code=404, detail="Arquivo do relatório não encontrado no servidor.")
-    return FileResponse(
-        path=flight.report_path,
-        media_type="application/pdf",
-        filename=f"relatorio_{flight_id}.pdf",
-    )
+    return FileResponse(path=flight.report_path, media_type="application/pdf", filename=f"relatorio_{flight_id}.pdf")
+
+
+@router.get("/{flight_id}/frames")
+def list_frames(flight_id: str, session: Session = Depends(get_session)):
+    flight = session.get(Flight, flight_id)
+    if not flight:
+        raise HTTPException(status_code=404, detail="Voo não encontrado.")
+    frames_path = _FRAMES_DIR / flight_id
+    if not frames_path.exists():
+        return []
+    frames = sorted(frames_path.glob("frame_*.jpg"))
+    return [{"name": f.name, "index": i + 1} for i, f in enumerate(frames)]
+
+
+@router.get("/{flight_id}/frames/{frame_name}")
+def get_frame_image(flight_id: str, frame_name: str):
+    frame_path = _FRAMES_DIR / flight_id / frame_name
+    if not frame_path.exists():
+        raise HTTPException(status_code=404, detail="Frame não encontrado.")
+    return FileResponse(path=str(frame_path), media_type="image/jpeg")
+
+
+@router.post("/{flight_id}/analyze")
+def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
+    flight = session.get(Flight, flight_id)
+    if not flight:
+        raise HTTPException(status_code=404, detail="Voo não encontrado.")
+    frames_path = _FRAMES_DIR / flight_id
+    frame_files = sorted(str(p) for p in frames_path.glob("frame_*.jpg"))
+    if not frame_files:
+        raise HTTPException(status_code=404, detail="Nenhum frame disponível para análise.")
+    result = run_inference_batch(frame_files)
+    flight.detected_count = result["max_count"]
+    session.add(flight)
+    session.commit()
+    return {"detectedCount": result["max_count"]}
+
+
+@router.post("/{flight_id}/frames/{frame_name}/detect")
+def detect_frame(flight_id: str, frame_name: str, session: Session = Depends(get_session)):
+    if not session.get(Flight, flight_id):
+        raise HTTPException(status_code=404, detail="Voo não encontrado.")
+    frame_path = _FRAMES_DIR / flight_id / frame_name
+    if not frame_path.exists():
+        raise HTTPException(status_code=404, detail="Frame não encontrado.")
+    result = run_inference(str(frame_path))
+    return {"count": result.get("count", 0), "annotatedImageB64": result.get("annotatedImageB64")}
 
 
 @router.get("/{flight_id}")
