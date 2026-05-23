@@ -30,9 +30,13 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function formatDuration(startIso: string, endIso: string): string {
+export function formatDuration(startIso: string, endIso?: string | null): string {
+  if (!endIso) return '—';
   const diff = new Date(endIso).getTime() - new Date(startIso).getTime();
-  const minutes = Math.floor(diff / 60000);
+  if (diff <= 0) return '—';
+  const totalSeconds = Math.floor(diff / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

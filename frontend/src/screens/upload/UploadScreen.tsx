@@ -27,6 +27,7 @@ const uploadStatusConfig: Record<UploadStatus, { label: string; color: string }>
 export function UploadScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<{ uri: string; name: string; size: number; file?: File } | null>(null);
+  const [flightName, setFlightName] = useState('');
   const [selectedPastureId, setSelectedPastureId] = useState('');
   const [notes, setNotes] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -68,7 +69,9 @@ export function UploadScreen({ navigation }: Props) {
     const pasture = pastures?.find((p) => p.id === selectedPastureId);
     const fileToUpload = selectedFile;
     const pastureToUpload = selectedPastureId;
+    const pastureName = pasture?.name ?? 'Pasto desconhecido';
     const notesToUpload = notes.trim() || undefined;
+    const nameToUpload = flightName.trim() || undefined;
 
     setIsAdding(true);
 
@@ -77,19 +80,22 @@ export function UploadScreen({ navigation }: Props) {
       fileName: fileToUpload.name,
       fileSize: fileToUpload.size,
       pastureId: pastureToUpload,
-      pastureName: pasture?.name ?? 'Pasto desconhecido',
+      pastureName,
       flightDate: new Date().toISOString(),
     });
 
     setSelectedFile(null);
     setSelectedPastureId('');
+    setFlightName('');
     setNotes('');
     setIsAdding(false);
 
     updateStatus(queued.id, 'uploading', 30);
     try {
       await uploadFlight({
+        name: nameToUpload,
         pastureId: pastureToUpload,
+        pastureName,
         farmId: farm?.id ?? 'farm-local',
         flightDate: new Date().toISOString(),
         notes: notesToUpload,
@@ -154,6 +160,18 @@ export function UploadScreen({ navigation }: Props) {
             </View>
           )}
         </TouchableOpacity>
+
+        {/* Nome do voo */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Nome do voo (opcional)</Text>
+          <TextInput
+            style={[styles.input, styles.inputSingle]}
+            value={flightName}
+            onChangeText={setFlightName}
+            placeholder="Ex: Voo matutino pasto norte"
+            placeholderTextColor={colors.textDisabled}
+          />
+        </View>
 
         {/* Seleção de pasto */}
         <View style={styles.fieldGroup}>
@@ -330,6 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     minHeight: 80,
   },
+  inputSingle: { minHeight: undefined },
   addButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

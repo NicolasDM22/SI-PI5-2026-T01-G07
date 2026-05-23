@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Flight } from '../../types';
 import { Badge } from '../common/Badge';
 import { colors, radius, shadows, spacing, typography } from '../../theme';
@@ -11,33 +11,51 @@ interface Props {
 }
 
 export function FlightCard({ flight, onPress }: Props) {
-  const countDiff = flight.detectedCount - flight.expectedCount;
-  const countColor =
-    countDiff < -5 ? colors.danger : countDiff < 0 ? colors.warning : colors.success;
+  const hasCount = flight.detectedCount != null;
+  const countDiff = hasCount ? flight.detectedCount! - (flight.expectedCount ?? 0) : null;
+  const countColor = countDiff == null
+    ? colors.textDisabled
+    : countDiff < -5 ? colors.danger
+    : countDiff < 0 ? colors.warning
+    : colors.success;
+
+  const displayName = flight.name ?? flight.pastureName ?? 'Voo sem nome';
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => onPress(flight)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.pasture}>{flight.pastureName}</Text>
+    <TouchableOpacity style={styles.card} onPress={() => onPress(flight)} activeOpacity={0.85}>
+      <View style={styles.topRow}>
+        {/* Thumbnail */}
+        {flight.thumbnailUrl ? (
+          <Image source={{ uri: flight.thumbnailUrl }} style={styles.thumb} resizeMode="cover" />
+        ) : (
+          <View style={[styles.thumb, styles.thumbPlaceholder]}>
+            <Text style={styles.thumbIcon}>🚁</Text>
+          </View>
+        )}
+
+        {/* Info principal */}
+        <View style={styles.info}>
+          <View style={styles.infoHeader}>
+            <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+            <Badge
+              label={flight.alertsCount > 0 ? `${flight.alertsCount} alerta${flight.alertsCount > 1 ? 's' : ''}` : 'OK'}
+              variant={flight.alertsCount > 0 ? 'warning' : 'resolved'}
+            />
+          </View>
+          {flight.name && flight.pastureName && (
+            <Text style={styles.pasture} numberOfLines={1}>{flight.pastureName}</Text>
+          )}
           <Text style={styles.date}>{formatDateTime(flight.startTs)}</Text>
         </View>
-        <Badge
-          label={flight.alertsCount > 0 ? `${flight.alertsCount} alerta${flight.alertsCount > 1 ? 's' : ''}` : 'Sem alertas'}
-          variant={flight.alertsCount > 0 ? 'warning' : 'resolved'}
-        />
       </View>
 
+      {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Detectados</Text>
           <Text style={[styles.statValue, { color: countColor }]}>
-            {flight.detectedCount}
-            <Text style={styles.expected}>/{flight.expectedCount}</Text>
+            {hasCount ? flight.detectedCount : '—'}
+            <Text style={styles.expected}>/{flight.expectedCount ?? '?'}</Text>
           </Text>
         </View>
         <View style={styles.statDivider} />
@@ -47,8 +65,8 @@ export function FlightCard({ flight, onPress }: Props) {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>Altitude</Text>
-          <Text style={styles.statValue}>{flight.altitudeEstimated}m</Text>
+          <Text style={styles.statLabel}>Frames</Text>
+          <Text style={styles.statValue}>{flight.frameCount ?? '—'}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -64,20 +82,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     ...shadows.sm,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  topRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  thumb: {
+    width: 88,
+    height: 66,
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
   },
-  pasture: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
+  thumbPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSecondary,
   },
-  date: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
+  thumbIcon: { fontSize: 24 },
+  info: { flex: 1, gap: 3 },
+  infoHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.xs },
+  name: { ...typography.bodyBold, color: colors.textPrimary, flex: 1 },
+  pasture: { ...typography.caption, color: colors.primary },
+  date: { ...typography.caption, color: colors.textSecondary },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
