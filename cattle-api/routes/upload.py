@@ -24,6 +24,8 @@ async def upload_flight(
     pastureId: str = Form(...),
     farmId: str = Form(...),
     flightDate: str = Form(...),
+    name: Optional[str] = Form(None),
+    pastureName: Optional[str] = Form(None),
     altitudeEstimated: Optional[float] = Form(None),
     notes: Optional[str] = Form(None),
     session: Session = Depends(get_session),
@@ -52,7 +54,9 @@ async def upload_flight(
     flight = Flight(
         id=flight_id,
         pasture_id=pastureId,
+        pasture_name=pastureName,
         farm_id=farmId,
+        name=name,
         start_ts=datetime.fromisoformat(flightDate),
         altitude_estimated=altitudeEstimated,
         notes=notes,

@@ -18,6 +18,7 @@ class Flight(SQLModel, table=True):
     detected_count: Optional[int] = Field(default=None)
     expected_count: Optional[int] = Field(default=None)
     alerts_count: int = Field(default=0)
+    name: Optional[str] = Field(default=None)
     notes: Optional[str] = Field(default=None)
     source: str = Field(default="upload")        # upload | live
     ai_sync_status: str = Field(default="pending")  # pending | sent | failed
