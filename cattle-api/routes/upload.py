@@ -57,7 +57,7 @@ async def upload_flight(
         pasture_name=pastureName,
         farm_id=farmId,
         name=name,
-        start_ts=datetime.fromisoformat(flightDate),
+        start_ts=datetime.fromisoformat(flightDate.replace("Z", "+00:00")),
         altitude_estimated=altitudeEstimated,
         notes=notes,
         status="processing",
