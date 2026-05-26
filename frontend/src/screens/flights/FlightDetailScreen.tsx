@@ -10,6 +10,8 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  Linking,
+  Alert,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFlightById, getFlightFrames, detectFrameCattle, analyzeAllFrames, FrameInfo, DetectionResult } from '../../api/services/flights';
@@ -17,6 +19,7 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { Badge } from '../../components/common/Badge';
 import { colors, radius, shadows, spacing, typography } from '../../theme';
 import { formatDateTime, formatDuration } from '../../utils/format';
+import { API_BASE_URL } from '../../api/client';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const THUMB_SIZE = 80;
@@ -87,6 +90,13 @@ export function FlightDetailScreen({ navigation, route }: Props) {
     setScrollOffset(next);
   }
 
+  function openReport() {
+    const url = `${API_BASE_URL}/flights/${flightId}/report`;
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Erro', 'Não foi possível abrir o relatório. Verifique se o servidor está rodando.')
+    );
+  }
+
   function navigateFrame(direction: 'prev' | 'next') {
     const next = direction === 'prev' ? selectedIndex - 1 : selectedIndex + 1;
     if (next >= 0 && next < frames.length) {
@@ -153,6 +163,13 @@ export function FlightDetailScreen({ navigation, route }: Props) {
                 : `ℹ️ ${Math.abs(countDiff)} animal(is) não detectado(s)`}
             </Text>
           </View>
+        )}
+
+        {/* Botão de relatório PDF */}
+        {flight.status === 'completed' && hasCount && (
+          <TouchableOpacity style={styles.reportBtn} onPress={openReport}>
+            <Text style={styles.reportBtnText}>📄  Baixar Relatório PDF</Text>
+          </TouchableOpacity>
         )}
 
         {/* Timeline de frames */}
@@ -362,6 +379,16 @@ const styles = StyleSheet.create({
   dangerBanner: { backgroundColor: colors.dangerLight, borderLeftColor: colors.danger },
   warningText: { ...typography.bodyBold, color: '#B45309' },
   dangerText: { color: colors.danger },
+
+  reportBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  reportBtnText: { ...typography.bodyBold, color: '#fff' },
 
   section: { gap: spacing.xs },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
