@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models.flight import Flight
 from services.ai_inference import run_inference, run_inference_batch
+from services.report_generator import generate_report
 
 router = APIRouter()
 
@@ -88,11 +89,25 @@ def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
     frame_files = sorted(str(p) for p in frames_path.glob("frame_*.jpg"))
     if not frame_files:
         raise HTTPException(status_code=404, detail="Nenhum frame disponível para análise.")
-    result = run_inference_batch(frame_files)
+
+    result = run_inference_batch(frame_files, flight_id=flight_id)
     flight.detected_count = result["max_count"]
+    flight.status = "completed"
     session.add(flight)
     session.commit()
-    return {"detectedCount": result["max_count"]}
+    session.refresh(flight)
+
+    frame_results = result.get("frame_results", [])
+    if result.get("annotated_image_path"):
+        frame_results = [{"annotated_image_path": result["annotated_image_path"]}] + frame_results
+
+    report_path = generate_report(flight_id, frame_results)
+
+    return {
+        "detectedCount": result["max_count"],
+        "reportPath": report_path,
+        "annotatedImagePath": result.get("annotated_image_path"),
+    }
 
 
 @router.post("/{flight_id}/frames/{frame_name}/detect")

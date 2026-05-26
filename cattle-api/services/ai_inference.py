@@ -73,19 +73,40 @@ def run_inference(frame_path: str) -> dict:
         return {"count": 0, "annotatedImageB64": None}
 
 
-def run_inference_batch(frame_paths: list[str]) -> dict:
-    """Roda YOLO em batch em todos os frames e retorna o max count entre frames."""
+def run_inference_batch(frame_paths: list[str], flight_id: str = None) -> dict:
+    """Roda YOLO em batch em todos os frames e retorna o max count e imagem anotada."""
     try:
         model = _get_model()
         results = model(frame_paths, conf=_CONFIDENCE, verbose=False)
         max_count = 0
-        for result in results:
+        max_idx = 0
+        frame_results = []
+
+        for i, result in enumerate(results):
             count = sum(1 for box in result.boxes if int(box.cls[0]) in _CATTLE_CLASS_IDS)
-            max_count = max(max_count, count)
-        return {"max_count": max_count}
+            detections = [
+                {"bbox": box.xyxy[0].tolist(), "conf": float(box.conf[0]), "class": int(box.cls[0])}
+                for box in result.boxes if int(box.cls[0]) in _CATTLE_CLASS_IDS
+            ]
+            frame_results.append({"frame_path": frame_paths[i], "count": count, "detections": detections})
+            if count > max_count:
+                max_count = count
+                max_idx = i
+
+        annotated_image_path = None
+        if frame_results:
+            best_frame = frame_paths[max_idx]
+            img = cv2.imread(best_frame)
+            if img is not None:
+                _draw_boxes(img, [results[max_idx]])
+                annotated_path = Path(best_frame).parent / "annotated_max_count.jpg"
+                cv2.imwrite(str(annotated_path), img)
+                annotated_image_path = str(annotated_path)
+
+        return {"max_count": max_count, "frame_results": frame_results, "annotated_image_path": annotated_image_path}
     except Exception as e:
         logger.error(f"Erro na inferência batch: {e}")
-        return {"max_count": 0}
+        return {"max_count": 0, "frame_results": [], "annotated_image_path": None}
 
 
 def run_inference_frame(frame_bytes: bytes, flight_id: str) -> dict:
