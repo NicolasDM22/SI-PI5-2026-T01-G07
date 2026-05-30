@@ -8,6 +8,7 @@ from sqlmodel import Session
 from database import engine
 from models.flight import Flight
 from services.ai_inference import run_inference_frame
+from services.notifier import check_and_send_alert
 
 router = APIRouter()
 
@@ -23,6 +24,8 @@ async def live_stream(websocket: WebSocket):
     last_location = None
     last_pasture_id = None
     last_farm_id = None
+    total_conf_sum = 0.0
+    total_detection_count = 0
 
     with Session(engine) as session:
         flight = Flight(
@@ -64,6 +67,9 @@ async def live_stream(websocket: WebSocket):
             cattle_count = result.get("cattle_count", 0) if result else 0
             if cattle_count > max_detected:
                 max_detected = cattle_count
+            if result and cattle_count > 0:
+                total_conf_sum += result.get("confidence_avg", 0.0) * cattle_count
+                total_detection_count += cattle_count
 
             frame_index += 1
 
@@ -90,3 +96,11 @@ async def live_stream(websocket: WebSocket):
                     flight.farm_id = last_farm_id
                 session.add(flight)
                 session.commit()
+
+        confidence_avg = total_conf_sum / total_detection_count if total_detection_count > 0 else 0.0
+        check_and_send_alert(
+            flight_id=flight_id,
+            detected_count=max_detected if max_detected > 0 else None,
+            expected_count=last_expected_count,
+            confidence_avg=confidence_avg,
+        )

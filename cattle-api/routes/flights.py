@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models.flight import Flight
 from services.ai_inference import run_inference, run_inference_batch
+from services.notifier import check_and_send_alert
 from services.report_generator import generate_report
 
 router = APIRouter()
@@ -102,6 +103,15 @@ def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
         frame_results = [{"annotated_image_path": result["annotated_image_path"]}] + frame_results
 
     report_path = generate_report(flight_id, frame_results)
+
+    all_confs = [d["conf"] for fr in result.get("frame_results", []) for d in fr.get("detections", [])]
+    confidence_avg = sum(all_confs) / len(all_confs) if all_confs else 0.0
+    check_and_send_alert(
+        flight_id=flight_id,
+        detected_count=flight.detected_count,
+        expected_count=flight.expected_count,
+        confidence_avg=confidence_avg,
+    )
 
     return {
         "detectedCount": result["max_count"],
