@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/authStore';
 import { colors, typography } from '../theme';
 import { LoginScreen } from '../screens/auth/LoginScreen';
+import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { TabNavigator } from './TabNavigator';
 import { FlightDetailScreen } from '../screens/flights/FlightDetailScreen';
 import { LiveFlightScreen } from '../screens/live/LiveFlightScreen';
@@ -13,6 +14,8 @@ import { LiveFlightImagesScreen } from '../screens/live/LiveFlightImagesScreen';
 type AnyScreen = React.ComponentType<any>;
 
 const Stack = createStackNavigator();
+
+const authCardStyle = { overflow: 'visible' as const };
 
 export function AppNavigator() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -29,7 +32,18 @@ export function AppNavigator() {
         }}
       >
         {!isAuthenticated ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <>
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen as AnyScreen}
+              options={{ headerShown: false, cardStyle: authCardStyle }}
+            />
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen as AnyScreen}
+              options={{ headerShown: false, cardStyle: authCardStyle }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Main" component={TabNavigator} options={{ headerShown: false }} />

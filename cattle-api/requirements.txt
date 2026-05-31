@@ -7,3 +7,5 @@ fpdf2
 python-multipart
 websockets
 python-dotenv
+bcrypt
+python-jose[cryptography]

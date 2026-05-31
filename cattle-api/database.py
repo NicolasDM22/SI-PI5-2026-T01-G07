@@ -1,15 +1,14 @@
+import os
+
 from sqlmodel import SQLModel, Session, create_engine
 
-import models.flight  # noqa: F401 — registra o model no metadata
+import models.flight  # noqa: F401
+import models.user    # noqa: F401
+import models.farm    # noqa: F401
 
-DATABASE_URL = "sqlite:///./database.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cattle.db")
 
 engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
-
-
-_MIGRATIONS = [
-    "ALTER TABLE flight ADD COLUMN name TEXT",
-]
 
 
 def init_db() -> None:
@@ -18,8 +17,11 @@ def init_db() -> None:
 
 
 def _run_migrations() -> None:
+    migrations = [
+        "ALTER TABLE flight ADD COLUMN name TEXT",
+    ]
     with engine.connect() as conn:
-        for sql in _MIGRATIONS:
+        for sql in migrations:
             try:
                 conn.execute(__import__("sqlalchemy").text(sql))
                 conn.commit()
