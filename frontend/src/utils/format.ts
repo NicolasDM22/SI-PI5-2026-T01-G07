@@ -1,4 +1,4 @@
-import { AlertSeverity, AlertStatus, AlertType } from '../types';
+import { AlertSeverity } from '../types';
 
 export function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -42,20 +42,6 @@ export function formatDuration(startIso: string, endIso?: string | null): string
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
-
-export const alertTypeLabel: Record<AlertType, string> = {
-  anomaly_visual: 'Anomalia Visual',
-  low_count: 'Contagem Baixa',
-  behavior_abnormal: 'Comportamento Atípico',
-  isolation: 'Animal Isolado',
-};
-
-export const alertStatusLabel: Record<AlertStatus, string> = {
-  pending: 'Pendente',
-  investigating: 'Em Investigação',
-  resolved: 'Resolvido',
-  false_positive: 'Falso Positivo',
-};
 
 export const alertSeverityLabel: Record<AlertSeverity, string> = {
   critical: 'Crítico',

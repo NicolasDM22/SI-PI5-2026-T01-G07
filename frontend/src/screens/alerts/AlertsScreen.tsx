@@ -6,26 +6,23 @@ import { AlertCard } from '../../components/alerts/AlertCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { EmptyState } from '../../components/common/EmptyState';
 import { colors, radius, spacing, typography } from '../../theme';
-import { Alert as AlertType, AlertStatus } from '../../types';
-import { alertStatusLabel } from '../../utils/format';
+import { Alert as AlertType } from '../../types';
 
 interface Props {
   navigation: any;
 }
 
-const STATUS_FILTERS: (AlertStatus | 'all')[] = ['all', 'pending', 'investigating', 'resolved'];
-const filterLabel: Record<AlertStatus | 'all', string> = {
-  all: 'Todos',
-  ...alertStatusLabel,
-};
+type Filter = 'all' | 'unseen';
 
 export function AlertsScreen({ navigation }: Props) {
-  const [activeFilter, setActiveFilter] = useState<AlertStatus | 'all'>('all');
+  const [filter, setFilter] = useState<Filter>('all');
 
-  const { data: alerts, isLoading, refetch } = useQuery({
-    queryKey: ['alerts', activeFilter],
-    queryFn: () => getAlerts(activeFilter !== 'all' ? { status: activeFilter } : undefined),
+  const { data: alerts = [], isLoading, refetch } = useQuery({
+    queryKey: ['alerts'],
+    queryFn: getAlerts,
   });
+
+  const filtered = filter === 'unseen' ? alerts.filter((a) => !a.seen) : alerts;
 
   function handleAlertPress(alert: AlertType) {
     navigation.navigate('AlertDetail', { alertId: alert.id });
@@ -35,30 +32,26 @@ export function AlertsScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* Filtros de status */}
-      <View style={styles.filtersContainer}>
-        <FlatList
-          horizontal
-          data={STATUS_FILTERS}
-          keyExtractor={(item) => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.filterChip, activeFilter === item && styles.filterChipActive]}
-              onPress={() => setActiveFilter(item)}
-            >
-              <Text style={[styles.filterText, activeFilter === item && styles.filterTextActive]}>
-                {filterLabel[item]}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
+      {/* Filtros */}
+      <View style={styles.filtersRow}>
+        {(['all', 'unseen'] as Filter[]).map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.chip, filter === f && styles.chipActive]}
+            onPress={() => setFilter(f)}
+          >
+            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+              {f === 'all' ? 'Todos' : 'Não vistos'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        <Text style={styles.count}>
+          {filtered.length} alerta{filtered.length !== 1 ? 's' : ''}
+        </Text>
       </View>
 
-      {/* Lista */}
       <FlatList
-        data={alerts}
+        data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => <AlertCard alert={item} onPress={handleAlertPress} />}
@@ -66,15 +59,10 @@ export function AlertsScreen({ navigation }: Props) {
         refreshing={false}
         ListEmptyComponent={
           <EmptyState
-            title="Nenhum alerta encontrado"
-            description="Não há alertas nessa categoria no momento."
-            icon="🔍"
+            title="Nenhum alerta"
+            description={filter === 'unseen' ? 'Todos os alertas já foram vistos.' : 'Nenhum alerta gerado ainda.'}
+            icon="✅"
           />
-        }
-        ListHeaderComponent={
-          alerts && alerts.length > 0 ? (
-            <Text style={styles.countText}>{alerts.length} alerta{alerts.length !== 1 ? 's' : ''}</Text>
-          ) : null
         }
       />
     </View>
@@ -83,13 +71,17 @@ export function AlertsScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  filtersContainer: {
+  filtersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  filtersContent: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs },
-  filterChip: {
+  chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.full,
@@ -97,12 +89,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  filterChipActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
-  },
-  filterText: { ...typography.captionBold, color: colors.textSecondary },
-  filterTextActive: { color: colors.textInverse },
+  chipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  chipText: { ...typography.captionBold, color: colors.textSecondary },
+  chipTextActive: { color: colors.textInverse },
+  count: { ...typography.caption, color: colors.textDisabled, marginLeft: 'auto' },
   listContent: { padding: spacing.md, paddingBottom: spacing.xxl },
-  countText: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.sm },
 });

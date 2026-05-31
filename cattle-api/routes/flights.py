@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from database import get_session
+from models.alert import Alert
 from models.flight import Flight
 from services.ai_inference import run_inference, run_inference_batch
 from services.report_generator import generate_report
@@ -93,6 +94,33 @@ def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
     result = run_inference_batch(frame_files, flight_id=flight_id)
     flight.detected_count = result["max_count"]
     flight.status = "completed"
+
+    if flight.expected_count is not None:
+        diff = flight.detected_count - flight.expected_count
+        abs_diff = abs(diff)
+        if abs_diff > 0:
+            severity = "critical" if abs_diff >= 5 else "warning"
+            direction = "abaixo" if diff < 0 else "acima"
+            description = (
+                f"Contagem {direction} do esperado: "
+                f"{flight.detected_count} detectados, {flight.expected_count} esperados "
+                f"(diferença de {abs_diff} animal{'is' if abs_diff > 1 else ''})."
+            )
+            alert = Alert(
+                flight_id=flight.id,
+                farm_id=flight.farm_id,
+                pasture_id=flight.pasture_id,
+                pasture_name=flight.pasture_name,
+                detected_count=flight.detected_count,
+                expected_count=flight.expected_count,
+                diff=diff,
+                severity=severity,
+                description=description,
+                frame_path=result.get("annotated_image_path"),
+            )
+            session.add(alert)
+            flight.alerts_count = (flight.alerts_count or 0) + 1
+
     session.add(flight)
     session.commit()
     session.refresh(flight)

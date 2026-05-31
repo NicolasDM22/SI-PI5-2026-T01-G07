@@ -1,38 +1,60 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Alert } from '../../types';
-import { Badge } from '../common/Badge';
 import { colors, radius, shadows, spacing, typography } from '../../theme';
-import { alertSeverityLabel, alertStatusLabel, alertTypeLabel, formatRelativeTime } from '../../utils/format';
+import { alertSeverityLabel, formatRelativeTime } from '../../utils/format';
 
 interface Props {
   alert: Alert;
   onPress: (alert: Alert) => void;
 }
 
-const severityBorder: Record<Alert['severity'], string> = {
+const severityBorder: Record<'critical' | 'warning', string> = {
   critical: colors.danger,
   warning: colors.warning,
-  info: colors.info,
+};
+
+const severityBg: Record<'critical' | 'warning', string> = {
+  critical: colors.dangerLight,
+  warning: colors.warningLight,
+};
+
+const severityText: Record<'critical' | 'warning', string> = {
+  critical: colors.danger,
+  warning: '#B45309',
 };
 
 export function AlertCard({ alert, onPress }: Props) {
+  const borderColor = severityBorder[alert.severity];
+  const diffLabel = alert.diff > 0 ? `+${alert.diff}` : `${alert.diff}`;
+
   return (
     <TouchableOpacity
-      style={[styles.card, { borderLeftColor: severityBorder[alert.severity] }]}
+      style={[styles.card, { borderLeftColor: borderColor }, !alert.seen && styles.unseen]}
       onPress={() => onPress(alert)}
       activeOpacity={0.85}
     >
-      <Image source={{ uri: alert.thumbnailUrl }} style={styles.thumbnail} />
       <View style={styles.content}>
         <View style={styles.topRow}>
-          <Badge label={alertSeverityLabel[alert.severity]} variant={alert.severity} size="sm" />
-          <Text style={styles.time}>{formatRelativeTime(alert.detectedAt)}</Text>
+          <View style={[styles.badge, { backgroundColor: severityBg[alert.severity] }]}>
+            <Text style={[styles.badgeText, { color: severityText[alert.severity] }]}>
+              {alertSeverityLabel[alert.severity]}
+            </Text>
+          </View>
+          <Text style={styles.time}>{formatRelativeTime(alert.createdAt)}</Text>
+          {!alert.seen && <View style={styles.unseenDot} />}
         </View>
-        <Text style={styles.type}>{alertTypeLabel[alert.type]}</Text>
+
         <Text style={styles.pasture}>{alert.pastureName}</Text>
         <Text style={styles.description} numberOfLines={2}>{alert.description}</Text>
-        <Badge label={alertStatusLabel[alert.status]} variant={alert.status} size="sm" />
+
+        <View style={styles.countsRow}>
+          <Text style={styles.countItem}>🐄 {alert.detectedCount} detectados</Text>
+          <Text style={styles.countItem}>🎯 {alert.expectedCount} esperados</Text>
+          <Text style={[styles.diffText, { color: borderColor }]}>
+            {diffLabel} animais
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -42,42 +64,66 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    flexDirection: 'row',
-    overflow: 'hidden',
     borderLeftWidth: 4,
     marginBottom: spacing.sm,
     ...shadows.sm,
+    overflow: 'hidden',
   },
-  thumbnail: {
-    width: 90,
-    height: '100%',
-    minHeight: 110,
+  unseen: {
+    backgroundColor: '#FAFFFE',
   },
   content: {
-    flex: 1,
     padding: spacing.sm,
-    gap: 4,
+    gap: 6,
   },
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.xs,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
   },
   time: {
     ...typography.small,
     color: colors.textDisabled,
+    flex: 1,
+    textAlign: 'right',
   },
-  type: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
+  unseenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   pasture: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    ...typography.bodyBold,
+    color: colors.textPrimary,
   },
   description: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  countsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 2,
+  },
+  countItem: {
+    ...typography.small,
+    color: colors.textSecondary,
+  },
+  diffText: {
+    ...typography.captionBold,
+    marginLeft: 'auto',
   },
 });
