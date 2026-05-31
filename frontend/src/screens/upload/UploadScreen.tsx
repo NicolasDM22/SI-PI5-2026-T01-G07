@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, FlatList,
-  TextInput, Alert, ScrollView, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
+  TextInput, ActivityIndicator,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,20 +17,24 @@ interface Props {
 }
 
 const uploadStatusConfig: Record<UploadStatus, { label: string; color: string }> = {
-  queued: { label: 'Aguardando rede...', color: colors.textSecondary },
-  uploading: { label: 'Enviando...', color: colors.info },
-  processing: { label: 'Processando...', color: colors.accent },
-  done: { label: 'Concluído', color: colors.success },
-  error: { label: 'Falha no envio', color: colors.danger },
+  queued:     { label: 'Aguardando rede...', color: colors.textSecondary },
+  uploading:  { label: 'Enviando...',        color: colors.info },
+  processing: { label: 'Processando...',     color: colors.accent },
+  done:       { label: 'Concluído',          color: colors.success },
+  error:      { label: 'Falha no envio',     color: colors.danger },
 };
 
 export function UploadScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
+
   const [selectedFile, setSelectedFile] = useState<{ uri: string; name: string; size: number; file?: File } | null>(null);
   const [flightName, setFlightName] = useState('');
   const [selectedPastureId, setSelectedPastureId] = useState('');
   const [notes, setNotes] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [retryConfirmId, setRetryConfirmId] = useState<string | null>(null);
+  const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
 
   const { queue, addToQueue, removeFromQueue, updateStatus } = useUploadQueueStore();
   const { data: farm } = useQuery({ queryKey: ['farm'], queryFn: getMyFarm });
@@ -41,30 +45,17 @@ export function UploadScreen({ navigation }: Props) {
   });
 
   async function pickVideo() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: 'video/*',
-      copyToCacheDirectory: true,
-    });
+    const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      setSelectedFile({
-        uri: asset.uri,
-        name: asset.name,
-        size: asset.size ?? 0,
-        file: (asset as any).file,
-      });
+      setSelectedFile({ uri: asset.uri, name: asset.name, size: asset.size ?? 0, file: (asset as any).file });
     }
   }
 
   async function addToQueueHandler() {
-    if (!selectedFile) {
-      Alert.alert('Selecione um vídeo', 'Escolha o arquivo de vídeo antes de continuar.');
-      return;
-    }
-    if (!selectedPastureId) {
-      Alert.alert('Selecione o pasto', 'Informe qual pasto foi sobrevoado neste voo.');
-      return;
-    }
+    setFormError('');
+    if (!selectedFile) { setFormError('Selecione um vídeo antes de continuar.'); return; }
+    if (!selectedPastureId) { setFormError('Selecione o pasto sobrevoado.'); return; }
 
     const pasture = pastures?.find((p) => p.id === selectedPastureId);
     const fileToUpload = selectedFile;
@@ -109,35 +100,30 @@ export function UploadScreen({ navigation }: Props) {
     }
   }
 
-  function handleRetry(item: UploadItem) {
-    Alert.alert('Reenviar', `Deseja reenviar o vídeo "${item.fileName}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Reenviar',
-        onPress: () => {
-          updateStatus(item.id, 'uploading', 20);
-          setTimeout(() => updateStatus(item.id, 'processing', 70), 500);
-          setTimeout(() => updateStatus(item.id, 'done', 100), 1200);
-        },
-      },
-    ]);
+  function confirmRetry(item: UploadItem) {
+    updateStatus(item.id, 'uploading', 20);
+    setTimeout(() => updateStatus(item.id, 'processing', 70), 500);
+    setTimeout(() => updateStatus(item.id, 'done', 100), 1200);
+    setRetryConfirmId(null);
   }
 
-  function handleRemove(id: string) {
-    Alert.alert('Remover da fila', 'Deseja remover este item da fila?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => removeFromQueue(id) },
-    ]);
-  }
+  const selectedPasture = pastures?.find((p) => p.id === selectedPastureId);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+
       {/* Formulário de upload */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Enviar vídeo de voo</Text>
         <Text style={styles.cardSubtitle}>
           Sem internet? Adicione à fila — o envio ocorre automaticamente quando a rede for detectada.
         </Text>
+
+        {formError !== '' && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{formError}</Text>
+          </View>
+        )}
 
         {/* Seleção de vídeo */}
         <TouchableOpacity style={styles.filePicker} onPress={pickVideo} activeOpacity={0.85}>
@@ -176,25 +162,35 @@ export function UploadScreen({ navigation }: Props) {
         {/* Seleção de pasto */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Pasto sobrevoado *</Text>
+          {pastures && pastures.length === 0 && (
+            <Text style={styles.noPasturesHint}>
+              Nenhum pasto cadastrado. Acesse Perfil para adicionar.
+            </Text>
+          )}
           <View style={styles.pastureList}>
-            {pastures?.map((pasture) => (
-              <TouchableOpacity
-                key={pasture.id}
-                style={[
-                  styles.pastureChip,
-                  selectedPastureId === pasture.id && styles.pastureChipActive,
-                ]}
-                onPress={() => setSelectedPastureId(pasture.id)}
-              >
-                <Text style={[
-                  styles.pastureChipText,
-                  selectedPastureId === pasture.id && styles.pastureChipTextActive,
-                ]}>
-                  {pasture.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {pastures?.map((pasture) => {
+              const active = selectedPastureId === pasture.id;
+              return (
+                <TouchableOpacity
+                  key={pasture.id}
+                  style={[styles.pastureChip, active && styles.pastureChipActive]}
+                  onPress={() => setSelectedPastureId(pasture.id)}
+                >
+                  <Text style={[styles.pastureChipName, active && styles.pastureChipTextActive]}>
+                    {pasture.name}
+                  </Text>
+                  <Text style={[styles.pastureChipCount, active && styles.pastureChipTextActive]}>
+                    {pasture.expectedCount} animais
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+          {selectedPasture && (
+            <Text style={styles.pastureHint}>
+              Contagem esperada: {selectedPasture.expectedCount} animais
+            </Text>
+          )}
         </View>
 
         {/* Notas */}
@@ -235,9 +231,20 @@ export function UploadScreen({ navigation }: Props) {
               <View key={item.id} style={styles.queueItem}>
                 <View style={styles.queueItemHeader}>
                   <Text style={styles.queueFileName} numberOfLines={1}>{item.fileName}</Text>
-                  <TouchableOpacity onPress={() => handleRemove(item.id)}>
-                    <Text style={styles.queueRemove}>✕</Text>
-                  </TouchableOpacity>
+                  {removeConfirmId === item.id ? (
+                    <View style={styles.inlineConfirm}>
+                      <TouchableOpacity onPress={() => { removeFromQueue(item.id); setRemoveConfirmId(null); }} style={styles.confirmDanger}>
+                        <Text style={styles.confirmDangerText}>Remover</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setRemoveConfirmId(null)} style={styles.confirmCancel}>
+                        <Text style={styles.confirmCancelText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity onPress={() => setRemoveConfirmId(item.id)}>
+                      <Text style={styles.queueRemove}>✕</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 <Text style={styles.queuePasture}>{item.pastureName}</Text>
@@ -250,9 +257,20 @@ export function UploadScreen({ navigation }: Props) {
                     <Text style={styles.queueProgress}>{item.progress}%</Text>
                   )}
                   {item.status === 'error' && (
-                    <TouchableOpacity onPress={() => handleRetry(item)}>
-                      <Text style={styles.retryText}>Tentar novamente</Text>
-                    </TouchableOpacity>
+                    retryConfirmId === item.id ? (
+                      <View style={styles.inlineConfirm}>
+                        <TouchableOpacity onPress={() => confirmRetry(item)} style={styles.confirmPrimary}>
+                          <Text style={styles.confirmPrimaryText}>Reenviar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setRetryConfirmId(null)} style={styles.confirmCancel}>
+                          <Text style={styles.confirmCancelText}>Cancelar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity onPress={() => setRetryConfirmId(item.id)} style={styles.retryButton}>
+                        <Text style={styles.retryText}>Tentar novamente</Text>
+                      </TouchableOpacity>
+                    )
                   )}
                 </View>
 
@@ -294,28 +312,14 @@ const styles = StyleSheet.create({
   },
   cardTitle: { ...typography.h3, color: colors.textPrimary },
   cardSubtitle: { ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
-  filePicker: {
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  fileEmpty: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
+  errorBox: { backgroundColor: '#FDECEA', borderRadius: radius.md, padding: spacing.sm },
+  errorText: { ...typography.caption, color: colors.danger },
+  filePicker: { borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed', borderRadius: radius.md, overflow: 'hidden' },
+  fileEmpty: { padding: spacing.xl, alignItems: 'center', gap: spacing.xs },
   fileEmptyIcon: { fontSize: 32 },
   fileEmptyText: { ...typography.bodyBold, color: colors.textSecondary },
   fileEmptyHint: { ...typography.small, color: colors.textDisabled },
-  fileSelected: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: colors.infoLight,
-  },
+  fileSelected: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, gap: spacing.sm, backgroundColor: colors.infoLight },
   fileIcon: { fontSize: 28 },
   fileInfo: { flex: 1 },
   fileName: { ...typography.bodyBold, color: colors.textPrimary },
@@ -323,6 +327,7 @@ const styles = StyleSheet.create({
   fileRemove: { fontSize: 18, color: colors.textSecondary, padding: spacing.xs },
   fieldGroup: { gap: spacing.xs },
   label: { ...typography.captionBold, color: colors.textSecondary },
+  noPasturesHint: { ...typography.caption, color: colors.accent, fontStyle: 'italic' },
   pastureList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   pastureChip: {
     paddingHorizontal: spacing.md,
@@ -331,13 +336,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
     borderWidth: 1.5,
     borderColor: colors.border,
+    alignItems: 'center',
   },
-  pastureChipActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
-  },
-  pastureChipText: { ...typography.captionBold, color: colors.textSecondary },
+  pastureChipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  pastureChipName: { ...typography.captionBold, color: colors.textSecondary },
+  pastureChipCount: { ...typography.small, color: colors.textDisabled },
   pastureChipTextActive: { color: colors.textInverse },
+  pastureHint: { ...typography.caption, color: colors.primary, fontStyle: 'italic' },
   input: {
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -349,46 +354,32 @@ const styles = StyleSheet.create({
     minHeight: 80,
   },
   inputSingle: { minHeight: undefined },
-  addButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
+  addButton: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', ...shadows.sm },
   addButtonDisabled: { opacity: 0.7 },
   addButtonText: { ...typography.bodyBold, color: colors.textInverse },
   section: { gap: spacing.sm },
   sectionTitle: { ...typography.bodyBold, color: colors.textPrimary },
-  queueItem: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: 4,
-    ...shadows.sm,
-  },
+  queueItem: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4, ...shadows.sm },
   queueItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   queueFileName: { ...typography.bodyBold, color: colors.textPrimary, flex: 1, marginRight: spacing.sm },
   queueRemove: { fontSize: 16, color: colors.textDisabled, padding: 4 },
   queuePasture: { ...typography.caption, color: colors.primary },
   queueDate: { ...typography.small, color: colors.textDisabled },
-  queueStatusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 4 },
+  queueStatusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 4, flexWrap: 'wrap' },
   queueStatusDot: { width: 8, height: 8, borderRadius: 4 },
   queueStatusText: { ...typography.captionBold },
   queueProgress: { ...typography.caption, color: colors.info, marginLeft: 'auto' },
-  retryText: { ...typography.captionBold, color: colors.primary, marginLeft: 'auto' },
-  progressBar: {
-    height: 4,
-    backgroundColor: colors.borderLight,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginTop: 4,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.info,
-    borderRadius: radius.full,
-  },
+  retryButton: { marginLeft: 'auto' },
+  retryText: { ...typography.captionBold, color: colors.primary },
+  inlineConfirm: { flexDirection: 'row', gap: 4, marginLeft: 'auto' },
+  confirmDanger: { backgroundColor: colors.danger, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  confirmDangerText: { ...typography.small, color: colors.textInverse, fontWeight: '600' as const },
+  confirmPrimary: { backgroundColor: colors.primary, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  confirmPrimaryText: { ...typography.small, color: colors.textInverse, fontWeight: '600' as const },
+  confirmCancel: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  confirmCancelText: { ...typography.small, color: colors.textSecondary, fontWeight: '600' as const },
+  progressBar: { height: 4, backgroundColor: colors.borderLight, borderRadius: radius.full, overflow: 'hidden', marginTop: 4 },
+  progressFill: { height: '100%', backgroundColor: colors.info, borderRadius: radius.full },
   errorMessage: { ...typography.small, color: colors.danger },
   emptyQueue: { alignItems: 'center', padding: spacing.xl, gap: spacing.xs },
   emptyQueueIcon: { fontSize: 36 },

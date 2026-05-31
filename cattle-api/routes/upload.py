@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from sqlmodel import Session
 
 from database import get_session
+from models.farm import Pasture
 from models.flight import Flight
 from services.processor import process_video
 
@@ -44,6 +45,10 @@ async def upload_flight(
             detail="Arquivo muito grande. O tamanho máximo permitido é 500MB.",
         )
 
+    pasture = session.get(Pasture, pastureId)
+    resolved_pasture_name = pastureName or (pasture.name if pasture else None)
+    resolved_expected_count = pasture.expected_count if pasture else None
+
     flight_id = str(uuid.uuid4())
     os.makedirs(VIDEOS_DIR, exist_ok=True)
     video_path = f"{VIDEOS_DIR}/{flight_id}.mp4"
@@ -54,7 +59,7 @@ async def upload_flight(
     flight = Flight(
         id=flight_id,
         pasture_id=pastureId,
-        pasture_name=pastureName,
+        pasture_name=resolved_pasture_name,
         farm_id=farmId,
         name=name,
         start_ts=datetime.fromisoformat(flightDate.replace("Z", "+00:00")),
@@ -63,6 +68,7 @@ async def upload_flight(
         status="processing",
         source="upload",
         video_path=video_path,
+        expected_count=resolved_expected_count,
     )
     session.add(flight)
     session.commit()
