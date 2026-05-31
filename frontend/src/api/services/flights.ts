@@ -1,8 +1,5 @@
 import { Flight } from '../../types';
 import { apiClient } from '../client';
-import { useFlightHistoryStore } from '../../store/flightHistoryStore';
-
-const USE_LOCAL_FALLBACK = false;
 
 function withThumbnail(flight: Flight): Flight {
   const baseUrl = (apiClient.defaults.baseURL ?? '').replace(/\/$/, '');
@@ -14,22 +11,11 @@ function withThumbnail(flight: Flight): Flight {
 }
 
 export async function getFlights(farmId?: string): Promise<Flight[]> {
-  if (USE_LOCAL_FALLBACK) {
-    const flights = useFlightHistoryStore.getState().flights;
-    return farmId ? flights.filter((f) => f.farmId === farmId) : [...flights];
-  }
-
   const { data } = await apiClient.get<Flight[]>('/flights', { params: { farmId } });
   return data.map(withThumbnail);
 }
 
 export async function getFlightById(id: string): Promise<Flight> {
-  if (USE_LOCAL_FALLBACK) {
-    const flight = useFlightHistoryStore.getState().getFlightById(id);
-    if (!flight) throw new Error('Voo não encontrado');
-    return flight;
-  }
-
   const { data } = await apiClient.get<Flight>(`/flights/${id}`);
   return withThumbnail(data);
 }
@@ -47,19 +33,6 @@ export interface UploadFlightPayload {
 }
 
 export async function uploadFlight(payload: UploadFlightPayload): Promise<{ flightId: string }> {
-  if (USE_LOCAL_FALLBACK) {
-    const created = useFlightHistoryStore.getState().registerFlight({
-      pastureId: payload.pastureId,
-      pastureName: 'Pasto enviado por upload',
-      startTs: payload.flightDate,
-      endTs: new Date().toISOString(),
-      notes: payload.notes,
-      source: 'upload',
-      altitudeEstimated: payload.altitudeEstimated ?? 35,
-    });
-    return { flightId: created.id };
-  }
-
   const formData = new FormData();
   if (payload.name) formData.append('name', payload.name);
   formData.append('pastureId', payload.pastureId);
@@ -94,10 +67,7 @@ export interface DetectionResult {
 export async function getFlightFrames(flightId: string): Promise<FrameInfo[]> {
   const { data } = await apiClient.get<{ name: string; index: number }[]>(`/flights/${flightId}/frames`);
   const baseUrl = (apiClient.defaults.baseURL ?? '').replace(/\/$/, '');
-  return data.map((f) => ({
-    ...f,
-    url: `${baseUrl}/flights/${flightId}/frames/${f.name}`,
-  }));
+  return data.map((f) => ({ ...f, url: `${baseUrl}/flights/${flightId}/frames/${f.name}` }));
 }
 
 export async function detectFrameCattle(flightId: string, frameName: string): Promise<DetectionResult> {

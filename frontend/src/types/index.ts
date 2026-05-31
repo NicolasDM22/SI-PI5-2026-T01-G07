@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  farmId: string;
+  farmId: string | null;
 }
 
 export interface Farm {
