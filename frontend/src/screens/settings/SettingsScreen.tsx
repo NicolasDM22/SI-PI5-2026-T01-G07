@@ -32,7 +32,7 @@ export function SettingsScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
-  const [formCount, setFormCount] = useState('0');
+  const [formCount, setFormCount] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function SettingsScreen() {
   function openAdd() {
     setEditingId(null);
     setFormName('');
-    setFormCount('0');
+    setFormCount('');
     setFormError('');
     setShowForm(true);
   }
@@ -63,7 +63,8 @@ export function SettingsScreen() {
   async function handleSave() {
     if (!formName.trim()) { setFormError('Informe o nome do pasto.'); return; }
     const count = parseInt(formCount, 10);
-    if (isNaN(count) || count < 0) { setFormError('Quantidade deve ser um número positivo.'); return; }
+    if (!formCount.trim() || isNaN(count)) { setFormError('Informe a quantidade de animais esperados.'); return; }
+    if (count <= 0) { setFormError('Quantidade de animais deve ser maior que zero.'); return; }
     if (!farm) return;
     setFormLoading(true);
     setFormError('');
@@ -263,12 +264,12 @@ function PastureForm({ title, name, count, loading, error, onChangeName, onChang
         />
       </View>
       <View style={formStyles.field}>
-        <Text style={formStyles.label}>Animais esperados</Text>
+        <Text style={formStyles.label}>Animais esperados *</Text>
         <TextInput
           style={formStyles.input}
           value={count}
           onChangeText={onChangeCount}
-          placeholder="0"
+          placeholder="Ex: 50"
           placeholderTextColor={colors.textDisabled}
           keyboardType="numeric"
         />
