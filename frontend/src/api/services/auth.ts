@@ -1,11 +1,16 @@
 import { User } from '../../types';
 import { apiClient } from '../client';
 
-const USE_LOCAL_FALLBACK = false;
-
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  farmName: string;
 }
 
 export interface AuthResponse {
@@ -14,23 +19,17 @@ export interface AuthResponse {
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  if (USE_LOCAL_FALLBACK) {
-    if (payload.email && payload.password) {
-      return {
-        user: {
-          id: 'user-local',
-          name: 'Operador Local',
-          email: payload.email,
-          role: 'operator',
-          farmId: 'farm-local',
-        },
-        token: 'local-session-token',
-      };
-    }
-    throw new Error('Credenciais inválidas');
-  }
-
   const { data } = await apiClient.post<AuthResponse>('/auth/login', payload);
+  return data;
+}
+
+export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/auth/register', {
+    name: payload.name,
+    email: payload.email,
+    password: payload.password,
+    farm_name: payload.farmName,
+  });
   return data;
 }
 
