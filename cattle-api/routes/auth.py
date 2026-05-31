@@ -61,9 +61,6 @@ def register(body: RegisterRequest, session: Session = Depends(get_session)):
 
     farm.owner_id = user.id
 
-    pasture = Pasture(farm_id=farm.id, name="Pasto Principal", expected_count=0)
-    session.add(pasture)
-
     session.commit()
     session.refresh(user)
 
