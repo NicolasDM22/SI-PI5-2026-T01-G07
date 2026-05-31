@@ -6,9 +6,11 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session
 
+from auth_utils import get_current_user
 from database import get_session
 from models.farm import Pasture
 from models.flight import Flight
+from models.user import User
 from services.processor import process_video
 
 router = APIRouter()
@@ -30,6 +32,7 @@ async def upload_flight(
     altitudeEstimated: Optional[float] = Form(None),
     notes: Optional[str] = Form(None),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     if video.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -69,6 +72,7 @@ async def upload_flight(
         source="upload",
         video_path=video_path,
         expected_count=resolved_expected_count,
+        operator_id=current_user.id,
     )
     session.add(flight)
     session.commit()

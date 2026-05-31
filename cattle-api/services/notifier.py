@@ -5,10 +5,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+from sqlmodel import Session, select
 
-_COUNT_THRESHOLD = 0.9
-_CONFIDENCE_THRESHOLD = 0.5
+from models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 def check_and_send_alert(
@@ -16,31 +17,46 @@ def check_and_send_alert(
     detected_count: Optional[int],
     expected_count: Optional[int],
     confidence_avg: float,
+    operator_id: Optional[str] = None,
+    session: Optional[Session] = None,
 ) -> None:
-    reasons = []
+    if expected_count is None or expected_count <= 0 or detected_count is None:
+        return
 
-    if expected_count is not None and expected_count > 0 and detected_count is not None:
-        if detected_count < _COUNT_THRESHOLD * expected_count:
-            reasons.append(
-                f"contagem detectada ({detected_count}) está abaixo de 90% da esperada ({expected_count})"
-            )
+    if detected_count == expected_count:
+        return
 
-    if (detected_count or 0) > 0 and confidence_avg < _CONFIDENCE_THRESHOLD:
-        reasons.append(f"confiança média ({confidence_avg:.2f}) está abaixo de 0.5")
-
-    if reasons:
-        _send_alert(
-            flight_id=flight_id,
-            detected_count=detected_count or 0,
-            expected_count=expected_count or 0,
-            reason="; ".join(reasons),
-        )
+    _send_alert(
+        flight_id=flight_id,
+        detected_count=detected_count,
+        expected_count=expected_count,
+        operator_id=operator_id,
+        session=session,
+    )
 
 
-def _send_alert(flight_id: str, detected_count: int, expected_count: int, reason: str) -> None:
-    recipient = os.getenv("ALERT_EMAIL")
+def _send_alert(
+    flight_id: str,
+    detected_count: int,
+    expected_count: int,
+    operator_id: Optional[str] = None,
+    session: Optional[Session] = None,
+) -> None:
+    recipient = None
+
+    if operator_id and session:
+        try:
+            user = session.exec(select(User).where(User.id == operator_id)).first()
+            if user:
+                recipient = user.email
+        except Exception as exc:
+            logger.warning("Falha ao buscar email do usuário %s: %s", operator_id, exc)
+
     if not recipient:
-        logger.warning("ALERT_EMAIL não configurado; alerta ignorado para voo %s.", flight_id)
+        recipient = os.getenv("ALERT_EMAIL")
+
+    if not recipient:
+        logger.warning("Nenhum destinatário para alerta do voo %s.", flight_id)
         return
 
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -49,13 +65,17 @@ def _send_alert(flight_id: str, detected_count: int, expected_count: int, reason
     smtp_password = os.getenv("SMTP_PASSWORD", "")
     smtp_from = os.getenv("SMTP_FROM", smtp_user)
 
-    subject = f"[Alerta] Voo {flight_id} — contagem abaixo do esperado"
+    diff = detected_count - expected_count
+    direction = "abaixo" if diff < 0 else "acima"
+    abs_diff = abs(diff)
+
+    subject = f"[Alerta] Contagem de gado {direction} do esperado"
     body = (
         f"Alerta de monitoramento de rebanho\n\n"
         f"Voo ID: {flight_id}\n"
         f"Contagem detectada: {detected_count}\n"
         f"Contagem esperada: {expected_count}\n"
-        f"Motivo: {reason}\n"
+        f"Diferença: {abs_diff} animal{'is' if abs_diff > 1 else ''} {direction}\n"
     )
 
     msg = MIMEMultipart()

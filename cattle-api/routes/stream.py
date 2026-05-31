@@ -1,20 +1,36 @@
 import base64
+import logging
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
 from sqlmodel import Session
 
+from auth_utils import ALGORITHM, SECRET_KEY
 from database import engine
 from models.flight import Flight
 from services.ai_inference import run_inference_frame
 from services.notifier import check_and_send_alert
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _decode_token(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("sub")
+    except JWTError:
+        return None
 
 
 @router.websocket("/ws/stream")
 async def live_stream(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    operator_id = _decode_token(token) if token else None
+
     await websocket.accept()
 
     flight_id = str(uuid.uuid4())
@@ -33,6 +49,7 @@ async def live_stream(websocket: WebSocket):
             pasture_id=flight_id,  # atualizado no disconnect quando pastureId chegar
             status="streaming",
             source="live",
+            operator_id=operator_id,
         )
         session.add(flight)
         session.commit()
@@ -97,10 +114,12 @@ async def live_stream(websocket: WebSocket):
                 session.add(flight)
                 session.commit()
 
-        confidence_avg = total_conf_sum / total_detection_count if total_detection_count > 0 else 0.0
-        check_and_send_alert(
-            flight_id=flight_id,
-            detected_count=max_detected if max_detected > 0 else None,
-            expected_count=last_expected_count,
-            confidence_avg=confidence_avg,
-        )
+            confidence_avg = total_conf_sum / total_detection_count if total_detection_count > 0 else 0.0
+            check_and_send_alert(
+                flight_id=flight_id,
+                detected_count=max_detected if max_detected > 0 else None,
+                expected_count=last_expected_count,
+                confidence_avg=confidence_avg,
+                operator_id=operator_id,
+                session=session,
+            )
