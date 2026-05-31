@@ -19,6 +19,7 @@ def check_and_send_alert(
     confidence_avg: float,
     operator_id: Optional[str] = None,
     session: Optional[Session] = None,
+    pasture_name: Optional[str] = None,
 ) -> None:
     if expected_count is None or expected_count <= 0 or detected_count is None:
         return
@@ -32,6 +33,7 @@ def check_and_send_alert(
         expected_count=expected_count,
         operator_id=operator_id,
         session=session,
+        pasture_name=pasture_name,
     )
 
 
@@ -41,6 +43,7 @@ def _send_alert(
     expected_count: int,
     operator_id: Optional[str] = None,
     session: Optional[Session] = None,
+    pasture_name: Optional[str] = None,
 ) -> None:
     recipient = None
 
@@ -72,10 +75,9 @@ def _send_alert(
     subject = f"[Alerta] Contagem de gado {direction} do esperado"
     body = (
         f"Alerta de monitoramento de rebanho\n\n"
-        f"Voo ID: {flight_id}\n"
         f"Contagem detectada: {detected_count}\n"
         f"Contagem esperada: {expected_count}\n"
-        f"Diferença: {abs_diff} animal{'is' if abs_diff > 1 else ''} {direction}\n"
+        f"Diferença: {abs_diff} animal{'ais' if abs_diff > 1 else ''} {direction}\n"
     )
 
     msg = MIMEMultipart()
