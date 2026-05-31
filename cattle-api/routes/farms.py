@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from auth_utils import get_current_user
@@ -14,12 +14,12 @@ router = APIRouter()
 
 class PastureCreate(BaseModel):
     name: str
-    expected_count: int = 0
+    expected_count: int = Field(..., gt=0, description="Quantidade de animais esperados (deve ser maior que zero)")
 
 
 class PastureUpdate(BaseModel):
     name: Optional[str] = None
-    expected_count: Optional[int] = None
+    expected_count: Optional[int] = Field(None, gt=0)
 
 
 def _pasture_response(p: Pasture) -> dict:
