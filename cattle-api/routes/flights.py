@@ -139,6 +139,8 @@ def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
         detected_count=flight.detected_count,
         expected_count=flight.expected_count,
         confidence_avg=confidence_avg,
+        operator_id=flight.operator_id,
+        session=session,
     )
 
     return {
