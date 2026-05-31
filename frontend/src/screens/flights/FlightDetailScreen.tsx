@@ -144,10 +144,6 @@ export function FlightDetailScreen({ navigation, route }: Props) {
             <Text style={styles.statLabel}>Duração do voo</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{flight.altitudeEstimated}m</Text>
-            <Text style={styles.statLabel}>Altitude estimada</Text>
-          </View>
-          <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: flight.alertsCount > 0 ? colors.warning : colors.success }]}>
               {flight.alertsCount}
             </Text>
