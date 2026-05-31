@@ -1,5 +1,6 @@
 import os
 
+from sqlalchemy import text
 from sqlmodel import SQLModel, Session, create_engine
 
 import models.flight  # noqa: F401
@@ -23,7 +24,7 @@ def _run_migrations() -> None:
     with engine.connect() as conn:
         for sql in migrations:
             try:
-                conn.execute(__import__("sqlalchemy").text(sql))
+                conn.execute(text(sql))
                 conn.commit()
             except Exception:
                 pass  # coluna já existe
