@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlmodel import Session
 
 from database import engine
 from models.flight import Flight
-from services.frame_extractor import cleanup_frames, extract_frames
+from services.frame_extractor import cleanup_frames, extract_frames, get_video_duration
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +24,15 @@ def process_video(flight_id: str) -> None:
             return
 
         try:
+            duration_secs = get_video_duration(flight.video_path)
             frames = extract_frames(flight.video_path, flight_id)
 
             flight.status = "completed"
             flight.frame_count = len(frames)
-            flight.end_ts = datetime.utcnow()
+            if duration_secs > 0 and flight.start_ts:
+                flight.end_ts = flight.start_ts + timedelta(seconds=duration_secs)
+            else:
+                flight.end_ts = datetime.utcnow()
             session.add(flight)
             session.commit()
 

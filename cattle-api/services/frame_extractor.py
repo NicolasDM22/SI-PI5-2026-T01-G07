@@ -78,6 +78,17 @@ def extract_frames(video_path: str, flight_id: str) -> list[str]:
         raise
 
 
+def get_video_duration(video_path: str) -> float:
+    """Retorna a duração do vídeo em segundos usando OpenCV."""
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    cap.release()
+    if fps > 0 and total_frames > 0:
+        return total_frames / fps
+    return 0.0
+
+
 def cleanup_frames(flight_id: str) -> None:
     """Remove os frames de um voo do disco."""
     frames_dir = os.path.join("outputs", "frames", flight_id)
