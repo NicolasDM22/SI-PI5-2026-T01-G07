@@ -1,42 +1,21 @@
-import { Alert, AlertStatus } from '../../types';
+import { Alert } from '../../types';
 import { apiClient } from '../client';
 
-const USE_LOCAL_FALLBACK = true;
-
-export interface AlertsFilter {
-  status?: AlertStatus;
-  pastureId?: string;
-  flightId?: string;
-}
-
-export async function getAlerts(filter?: AlertsFilter): Promise<Alert[]> {
-  if (USE_LOCAL_FALLBACK) {
-    void filter;
-    return [];
-  }
-
-  const { data } = await apiClient.get<Alert[]>('/alerts', { params: filter });
+export async function getAlerts(): Promise<Alert[]> {
+  const { data } = await apiClient.get<Alert[]>('/alerts');
   return data;
 }
 
 export async function getAlertById(id: string): Promise<Alert> {
-  if (USE_LOCAL_FALLBACK) {
-    throw new Error(`Alerta ${id} não encontrado no modo local`);
-  }
-
   const { data } = await apiClient.get<Alert>(`/alerts/${id}`);
   return data;
 }
 
-export async function updateAlertStatus(
-  id: string,
-  status: AlertStatus,
-  notes?: string
-): Promise<Alert> {
-  if (USE_LOCAL_FALLBACK) {
-    throw new Error(`Não é possível atualizar alerta ${id} no modo local`);
-  }
+export async function getUnseenCount(): Promise<number> {
+  const { data } = await apiClient.get<{ count: number }>('/alerts/unseen-count');
+  return data.count;
+}
 
-  const { data } = await apiClient.patch<Alert>(`/alerts/${id}`, { status, notes });
-  return data;
+export async function markAlertSeen(id: string): Promise<void> {
+  await apiClient.patch(`/alerts/${id}/seen`);
 }

@@ -3,6 +3,7 @@ import os
 from sqlalchemy import text
 from sqlmodel import SQLModel, Session, create_engine
 
+import models.alert   # noqa: F401
 import models.flight  # noqa: F401
 import models.user    # noqa: F401
 import models.farm    # noqa: F401

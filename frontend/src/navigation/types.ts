@@ -1,5 +1,6 @@
 export type RootStackParamList = {
   FlightDetail: { flightId: string };
+  AlertDetail: { alertId: string };
   LiveFlight: undefined;
   LiveFlightImages: { flightId: string };
 };
