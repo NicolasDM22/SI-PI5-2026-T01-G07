@@ -23,24 +23,23 @@ export interface Pasture {
   expectedCount: number;
 }
 
-export type AlertType = 'anomaly_visual' | 'low_count' | 'behavior_abnormal' | 'isolation';
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 export type AlertStatus = 'pending' | 'investigating' | 'resolved' | 'false_positive';
 
 export interface Alert {
   id: string;
   flightId: string;
+  farmId?: string;
   pastureId: string;
   pastureName: string;
-  type: AlertType;
-  severity: AlertSeverity;
-  status: AlertStatus;
+  detectedCount: number;
+  expectedCount: number;
+  diff: number;
+  severity: 'critical' | 'warning';
   description: string;
-  thumbnailUrl: string;
-  imageUrl: string;
-  detectedAt: string;
-  resolvedAt?: string;
-  notes?: string;
+  imageUrl?: string;
+  seen: boolean;
+  createdAt: string;
 }
 
 export type FlightStatus = 'completed' | 'processing' | 'failed';

@@ -6,6 +6,7 @@ import { colors, typography } from '../theme';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { TabNavigator } from './TabNavigator';
+import { AlertDetailScreen } from '../screens/alerts/AlertDetailScreen';
 import { FlightDetailScreen } from '../screens/flights/FlightDetailScreen';
 import { LiveFlightScreen } from '../screens/live/LiveFlightScreen';
 import { LiveFlightImagesScreen } from '../screens/live/LiveFlightImagesScreen';
@@ -47,6 +48,11 @@ export function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="Main" component={TabNavigator} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="AlertDetail"
+              component={AlertDetailScreen as AnyScreen}
+              options={{ title: 'Detalhe do Alerta', cardStyle: { overflow: 'visible' as const } }}
+            />
             <Stack.Screen
               name="FlightDetail"
               component={FlightDetailScreen as AnyScreen}

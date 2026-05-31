@@ -4,9 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
 import { getFlights } from '../../api/services/flights';
 import { getMyFarm } from '../../api/services/farms';
+import { getAlerts } from '../../api/services/alerts';
+import { AlertCard } from '../../components/alerts/AlertCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { colors, radius, shadows, spacing, typography } from '../../theme';
 import { formatRelativeTime } from '../../utils/format';
+import { Alert as AlertType } from '../../types';
 
 interface Props {
   navigation: any;
@@ -23,6 +26,9 @@ export function HomeScreen({ navigation }: Props) {
   });
 
   const lastFlight = flights?.[0];
+
+  const { data: allAlerts = [] } = useQuery({ queryKey: ['alerts'], queryFn: getAlerts });
+  const recentUnseen = allAlerts.filter((a) => !a.seen).slice(0, 3);
 
   if (isLoading) return <LoadingSpinner message="Carregando painel..." />;
 
@@ -97,10 +103,31 @@ export function HomeScreen({ navigation }: Props) {
         </TouchableOpacity>
       )}
 
-      <View style={styles.allGoodCard}>
-        <Text style={styles.allGoodEmoji}>🤖</Text>
-        <Text style={styles.allGoodText}>Módulo de alertas desativado no POC</Text>
-        <Text style={styles.allGoodSub}>Os voos ficam prontos para análise quando a API de IA subir.</Text>
+      {/* Alertas recentes */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Alertas recentes {recentUnseen.length > 0 && `(${recentUnseen.length} não vistos)`}
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Alerts')}>
+            <Text style={styles.sectionLink}>Ver todos</Text>
+          </TouchableOpacity>
+        </View>
+        {recentUnseen.length === 0 ? (
+          <View style={styles.allGoodCard}>
+            <Text style={styles.allGoodEmoji}>✅</Text>
+            <Text style={styles.allGoodText}>Nenhum alerta pendente</Text>
+            <Text style={styles.allGoodSub}>Tudo em ordem no rebanho.</Text>
+          </View>
+        ) : (
+          recentUnseen.map((alert: AlertType) => (
+            <AlertCard
+              key={alert.id}
+              alert={alert}
+              onPress={(a) => navigation.navigate('AlertDetail', { alertId: a.id })}
+            />
+          ))
+        )}
       </View>
     </ScrollView>
   );
@@ -167,6 +194,10 @@ const styles = StyleSheet.create({
   liveButtonTitle: { ...typography.bodyBold, color: '#52b788' },
   liveButtonSub: { ...typography.caption, color: '#5a6b5d' },
   liveButtonArrow: { fontSize: 22, color: '#52b788' },
+  section: { gap: spacing.xs },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionTitle: { ...typography.bodyBold, color: colors.textPrimary },
+  sectionLink: { ...typography.captionBold, color: colors.primary },
   allGoodCard: {
     backgroundColor: colors.successLight,
     borderRadius: radius.md,
