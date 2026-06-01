@@ -1,7 +1,7 @@
 import base64
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -94,7 +94,7 @@ async def live_stream(websocket: WebSocket):
                 "flightId": flight_id,
                 "frameIndex": frame_index,
                 "cattleCount": cattle_count,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
     except WebSocketDisconnect:
@@ -102,7 +102,7 @@ async def live_stream(websocket: WebSocket):
             flight = session.get(Flight, flight_id)
             if flight:
                 flight.status = "completed"
-                flight.end_ts = datetime.utcnow()
+                flight.end_ts = datetime.now(timezone.utc)
                 flight.frame_count = frame_index
                 flight.detected_count = max_detected if max_detected > 0 else None
                 flight.expected_count = last_expected_count

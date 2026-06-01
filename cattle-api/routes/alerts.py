@@ -28,7 +28,7 @@ def _serialize(a: Alert) -> dict:
         "description": a.description,
         "imageUrl": f"{_API_BASE_URL}/alerts/{a.id}/image" if a.frame_path else None,
         "seen": a.seen,
-        "createdAt": a.created_at.isoformat(),
+        "createdAt": a.created_at.isoformat() + "Z",
     }
 
 
