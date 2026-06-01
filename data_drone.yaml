@@ -1,0 +1,6 @@
+path: C:/Users/Bhort/Desktop/SI-PI5-2026-T01-G07/dataset_drone
+train: images/train
+val:   images/val
+
+nc: 1
+names: ['cow']
