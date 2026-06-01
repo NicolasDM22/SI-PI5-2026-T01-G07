@@ -153,13 +153,18 @@ def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
 
 @router.post("/{flight_id}/frames/{frame_name}/detect")
 def detect_frame(flight_id: str, frame_name: str, session: Session = Depends(get_session)):
-    if not session.get(Flight, flight_id):
+    flight = session.get(Flight, flight_id)
+    if not flight:
         raise HTTPException(status_code=404, detail="Voo não encontrado.")
     frame_path = _FRAMES_DIR / flight_id / frame_name
     if not frame_path.exists():
         raise HTTPException(status_code=404, detail="Frame não encontrado.")
     result = run_inference(str(frame_path))
-    return {"count": result.get("count", 0), "annotatedImageB64": result.get("annotatedImageB64")}
+    count = result.get("count", 0)
+    flight.detected_count = count
+    session.add(flight)
+    session.commit()
+    return {"count": count, "annotatedImageB64": result.get("annotatedImageB64")}
 
 
 @router.get("/{flight_id}")
