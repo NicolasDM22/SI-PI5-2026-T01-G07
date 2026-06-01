@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from database import init_db
-from routes import alerts, auth, farms, flights, stream, upload
+from routes import alerts, auth, farms, flights, images, stream, upload
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 app.include_router(farms.router, prefix="/farms", tags=["farms"])
 # upload antes de flights para evitar que "upload" seja capturado como {flight_id}
 app.include_router(upload.router, tags=["upload"])
+app.include_router(images.router, tags=["images"])
 app.include_router(flights.router, prefix="/flights", tags=["flights"])
 app.include_router(stream.router, prefix="/stream", tags=["stream"])
 

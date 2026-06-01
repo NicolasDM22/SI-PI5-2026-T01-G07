@@ -11,9 +11,9 @@ warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
 _model = None
-_MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "yolov8n.pt"
-_CATTLE_CLASS_IDS = {18, 19}
-_CONFIDENCE = 0.05
+_MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "best.pt"
+_CATTLE_CLASS_IDS = {0}
+_CONFIDENCE = 0.25
 
 
 def _get_model():
@@ -107,6 +107,24 @@ def run_inference_batch(frame_paths: list[str], flight_id: str = None) -> dict:
     except Exception as e:
         logger.error(f"Erro na inferência batch: {e}")
         return {"max_count": 0, "frame_results": [], "annotated_image_path": None}
+
+
+def run_inference_bytes(image_bytes: bytes) -> dict:
+    """Executa detecção YOLO em bytes de imagem e retorna contagem + imagem anotada em base64."""
+    try:
+        model = _get_model()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return {"count": 0, "annotatedImageB64": None}
+        results = model(img, conf=_CONFIDENCE, verbose=False)
+        count = _draw_boxes(img, results)
+        _, buf = cv2.imencode(".jpg", img)
+        annotated_b64 = base64.b64encode(buf).decode("utf-8")
+        return {"count": count, "annotatedImageB64": annotated_b64}
+    except Exception as e:
+        logger.error(f"Erro na inferência de imagem: {e}")
+        return {"count": 0, "annotatedImageB64": None}
 
 
 def run_inference_frame(frame_bytes: bytes, flight_id: str) -> dict:

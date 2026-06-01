@@ -1,11 +1,13 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Image, ActivityIndicator, Alert } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { useAuthStore } from '../../store/authStore';
 import { getFlights } from '../../api/services/flights';
 import { getMyFarm } from '../../api/services/farms';
 import { getAlerts } from '../../api/services/alerts';
 import { AlertCard } from '../../components/alerts/AlertCard';
+import { detectImage, ImageDetectResult } from '../../api/services/ai';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { colors, radius, shadows, spacing, typography } from '../../theme';
 import { formatRelativeTime } from '../../utils/format';
@@ -24,6 +26,27 @@ export function HomeScreen({ navigation }: Props) {
     queryFn: () => getFlights(farm?.id),
     enabled: !!farm,
   });
+
+  const [detecting, setDetecting] = useState(false);
+  const [detectResult, setDetectResult] = useState<ImageDetectResult | null>(null);
+  const [pickedImageUri, setPickedImageUri] = useState<string | null>(null);
+
+  async function handlePickAndDetect() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setPickedImageUri(asset.uri);
+      setDetectResult(null);
+      setDetecting(true);
+      const detection = await detectImage(asset.uri, asset.mimeType ?? undefined);
+      setDetectResult(detection);
+    } catch (e) {
+      Alert.alert('Erro', 'Não foi possível realizar a detecção. Verifique se a API está ativa.');
+    } finally {
+      setDetecting(false);
+    }
+  }
 
   const lastFlight = flights?.[0];
 
@@ -129,6 +152,32 @@ export function HomeScreen({ navigation }: Props) {
           ))
         )}
       </View>
+
+      {/* Teste de imagem com best.pt */}
+      <View style={styles.detectCard}>
+        <Text style={styles.detectTitle}>Testar detecção em imagem</Text>
+        <Text style={styles.detectSub}>Selecione uma foto para detectar gado com o modelo treinado</Text>
+        <TouchableOpacity style={styles.detectButton} onPress={handlePickAndDetect} disabled={detecting} activeOpacity={0.8}>
+          {detecting
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.detectButtonText}>Selecionar imagem</Text>
+          }
+        </TouchableOpacity>
+        {pickedImageUri && !detecting && (
+          <View style={styles.detectResultArea}>
+            {detectResult && (
+              <View style={styles.detectCountBadge}>
+                <Text style={styles.detectCountNumber}>{detectResult.count}</Text>
+                <Text style={styles.detectCountLabel}>gado detectado{detectResult.count !== 1 ? 's' : ''}</Text>
+              </View>
+            )}
+            {detectResult?.annotatedImageB64
+              ? <Image source={{ uri: `data:image/jpeg;base64,${detectResult.annotatedImageB64}` }} style={styles.detectImage} resizeMode="contain" />
+              : detectResult && <Image source={{ uri: pickedImageUri }} style={styles.detectImage} resizeMode="contain" />
+            }
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -208,4 +257,34 @@ const styles = StyleSheet.create({
   allGoodEmoji: { fontSize: 32 },
   allGoodText: { ...typography.bodyBold, color: colors.primary },
   allGoodSub: { ...typography.caption, color: colors.textSecondary },
+  detectCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  detectTitle: { ...typography.bodyBold, color: colors.textPrimary },
+  detectSub: { ...typography.caption, color: colors.textSecondary },
+  detectButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 42,
+  },
+  detectButtonText: { ...typography.bodyBold, color: '#fff' },
+  detectResultArea: { gap: spacing.sm },
+  detectCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+  },
+  detectCountNumber: { ...typography.h2, color: colors.primary },
+  detectCountLabel: { ...typography.body, color: colors.textSecondary },
+  detectImage: { width: '100%', height: 220, borderRadius: radius.md },
 });
