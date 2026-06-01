@@ -122,4 +122,5 @@ async def live_stream(websocket: WebSocket):
                 confidence_avg=confidence_avg,
                 operator_id=operator_id,
                 session=session,
+                pasture_name=last_location,
             )
