@@ -1,8 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Flight(SQLModel, table=True):
@@ -11,7 +15,7 @@ class Flight(SQLModel, table=True):
     pasture_name: Optional[str] = Field(default=None)
     farm_id: Optional[str] = Field(default=None)
     operator_id: Optional[str] = Field(default=None)
-    start_ts: datetime = Field(default_factory=datetime.utcnow)
+    start_ts: datetime = Field(default_factory=_utcnow)
     end_ts: Optional[datetime] = Field(default=None)
     altitude_estimated: Optional[float] = Field(default=None)
     status: str = Field(default="processing")   # processing | completed | failed
@@ -25,4 +29,4 @@ class Flight(SQLModel, table=True):
     frame_count: Optional[int] = Field(default=None)
     video_path: Optional[str] = Field(default=None)
     report_path: Optional[str] = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
