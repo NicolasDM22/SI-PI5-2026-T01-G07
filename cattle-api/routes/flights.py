@@ -141,6 +141,7 @@ def analyze_flight(flight_id: str, session: Session = Depends(get_session)):
         confidence_avg=confidence_avg,
         operator_id=flight.operator_id,
         session=session,
+        pasture_name=flight.pasture_name,
     )
 
     return {

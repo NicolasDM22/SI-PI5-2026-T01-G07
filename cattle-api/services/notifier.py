@@ -1,6 +1,7 @@
 import logging
 import os
 import smtplib
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -71,13 +72,16 @@ def _send_alert(
     diff = detected_count - expected_count
     direction = "abaixo" if diff < 0 else "acima"
     abs_diff = abs(diff)
+    timestamp = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
 
     subject = f"[Alerta] Contagem de gado {direction} do esperado"
     body = (
         f"Alerta de monitoramento de rebanho\n\n"
+        f"Data/Hora: {timestamp}\n"
+        f"Pastagem: {pasture_name or 'Não informado'}\n"
         f"Contagem detectada: {detected_count}\n"
         f"Contagem esperada: {expected_count}\n"
-        f"Diferença: {abs_diff} animal{'ais' if abs_diff > 1 else ''} {direction}\n"
+        f"Diferença: {abs_diff} {'animais' if abs_diff > 1 else 'animal'} {direction}\n"
     )
 
     msg = MIMEMultipart()
