@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlmodel import Session
 
@@ -32,7 +32,7 @@ def process_video(flight_id: str) -> None:
             if duration_secs > 0 and flight.start_ts:
                 flight.end_ts = flight.start_ts + timedelta(seconds=duration_secs)
             else:
-                flight.end_ts = datetime.utcnow()
+                flight.end_ts = datetime.now(timezone.utc)
             session.add(flight)
             session.commit()
 
