@@ -11,9 +11,10 @@ warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
 _model = None
-_MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "yolov8n.pt"
-_CATTLE_CLASS_IDS = {18, 19}
-_CONFIDENCE = 0.05
+_MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "best.pt"
+_CATTLE_CLASS_IDS = {0}
+_CONFIDENCE = 0.15
+_IOU = 0.4
 
 
 def _get_model():
@@ -62,7 +63,7 @@ def run_inference(frame_path: str) -> dict:
     """Executa detecção YOLO no frame e retorna contagem + imagem anotada em base64."""
     try:
         model = _get_model()
-        results = model(frame_path, conf=_CONFIDENCE, verbose=False)
+        results = model(frame_path, conf=_CONFIDENCE, iou=_IOU, verbose=False)
         img = cv2.imread(frame_path)
         count = _draw_boxes(img, results)
         _, buf = cv2.imencode(".jpg", img)
@@ -77,7 +78,7 @@ def run_inference_batch(frame_paths: list[str], flight_id: str = None) -> dict:
     """Roda YOLO em batch em todos os frames e retorna o max count e imagem anotada."""
     try:
         model = _get_model()
-        results = model(frame_paths, conf=_CONFIDENCE, verbose=False)
+        results = model(frame_paths, conf=_CONFIDENCE, iou=_IOU, verbose=False)
         max_count = 0
         max_idx = 0
         frame_results = []
@@ -115,7 +116,7 @@ def run_inference_frame(frame_bytes: bytes, flight_id: str) -> dict:
         model = _get_model()
         nparr = np.frombuffer(frame_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        results = model(img, conf=_CONFIDENCE, verbose=False)
+        results = model(img, conf=_CONFIDENCE, iou=_IOU, verbose=False)
         count = 0
         total_conf = 0.0
         for result in results:
