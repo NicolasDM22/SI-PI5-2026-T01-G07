@@ -38,6 +38,7 @@ export function FlightDetailScreen({ navigation, route }: Props) {
   const [selectedFrame, setSelectedFrame] = useState<FrameInfo | null>(null);
   const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [confirmAnalyzeVisible, setConfirmAnalyzeVisible] = useState(false);
 
   const { data: flight, isLoading } = useQuery({
     queryKey: ['flight', flightId],
@@ -53,7 +54,11 @@ export function FlightDetailScreen({ navigation, route }: Props) {
 
   const detectMutation = useMutation({
     mutationFn: () => detectFrameCattle(flightId, selectedFrame!.name),
-    onSuccess: (data) => setDetectionResult(data),
+    onSuccess: (data) => {
+      setDetectionResult(data);
+      queryClient.invalidateQueries({ queryKey: ['flight', flightId] });
+      queryClient.invalidateQueries({ queryKey: ['flights'] });
+    },
   });
 
   const analyzeMutation = useMutation({
@@ -178,7 +183,7 @@ export function FlightDetailScreen({ navigation, route }: Props) {
               {frames.length > 0 && (
                 <TouchableOpacity
                   style={[styles.analyzeBtn, analyzeMutation.isPending && styles.analyzeBtnDisabled]}
-                  onPress={() => analyzeMutation.mutate()}
+                  onPress={() => setConfirmAnalyzeVisible(true)}
                   disabled={analyzeMutation.isPending}
                 >
                   {analyzeMutation.isPending
@@ -245,6 +250,35 @@ export function FlightDetailScreen({ navigation, route }: Props) {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal de confirmação — Analisar Voo */}
+      <Modal visible={confirmAnalyzeVisible} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>Analisar Voo</Text>
+            <Text style={styles.confirmMessage}>
+              Será contabilizado o frame com o maior número de animais detectados como resultado do voo. Deseja continuar?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => setConfirmAnalyzeVisible(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmOkBtn}
+                onPress={() => {
+                  setConfirmAnalyzeVisible(false);
+                  analyzeMutation.mutate();
+                }}
+              >
+                <Text style={styles.confirmOkText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de frame */}
       <Modal visible={modalVisible} animationType="slide" statusBarTranslucent>
@@ -453,7 +487,42 @@ const styles = StyleSheet.create({
   },
   processingText: { ...typography.caption, color: colors.textSecondary, flex: 1 },
 
-  // Modal
+  // Modal de confirmação
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  confirmBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    width: '100%',
+    maxWidth: 360,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  confirmTitle: { ...typography.h3, color: colors.textPrimary },
+  confirmMessage: { ...typography.caption, color: colors.textSecondary, lineHeight: 20 },
+  confirmButtons: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end', marginTop: spacing.xs },
+  confirmCancelBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
+  },
+  confirmCancelText: { ...typography.caption, color: colors.textPrimary, fontWeight: '600' },
+  confirmOkBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
+  },
+  confirmOkText: { ...typography.caption, color: '#fff', fontWeight: '700' },
+
+  // Modal de frame
   modal: { flex: 1, backgroundColor: '#0a0a0a' },
 
   modalHeader: {
