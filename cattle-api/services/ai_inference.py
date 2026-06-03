@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _model = None
 _MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "best.pt"
 _CATTLE_CLASS_IDS = {0}
-_CONFIDENCE = 0.15
+_CONFIDENCE = 0.40
 _IOU = 0.4
 
 
@@ -52,7 +52,7 @@ def _draw_boxes(img, results):
             conf = float(box.conf[0])
             x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
             cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(img, f"Gado {conf:.2f}", (x1, y1 - 10),
+            cv2.putText(img, "Gado", (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
     cv2.putText(img, f"Gado: {count}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
