@@ -60,7 +60,7 @@ def _draw_boxes(img, results):
 
 
 def run_inference(frame_path: str) -> dict:
-    """Executa detecção YOLO no frame e retorna contagem + imagem anotada em base64."""
+    """Executa detecção YOLO no frame e retorna contagem + imagem anotada em base64 e em disco."""
     try:
         model = _get_model()
         results = model(frame_path, conf=_CONFIDENCE, iou=_IOU, verbose=False)
@@ -68,10 +68,12 @@ def run_inference(frame_path: str) -> dict:
         count = _draw_boxes(img, results)
         _, buf = cv2.imencode(".jpg", img)
         annotated_b64 = base64.b64encode(buf).decode("utf-8")
-        return {"count": count, "annotatedImageB64": annotated_b64}
+        annotated_path = Path(frame_path).parent / "annotated_max_count.jpg"
+        cv2.imwrite(str(annotated_path), img)
+        return {"count": count, "annotatedImageB64": annotated_b64, "annotated_image_path": str(annotated_path)}
     except Exception as e:
         logger.error(f"Erro na inferência ({frame_path}): {e}")
-        return {"count": 0, "annotatedImageB64": None}
+        return {"count": 0, "annotatedImageB64": None, "annotated_image_path": None}
 
 
 def run_inference_batch(frame_paths: list[str], flight_id: str = None) -> dict:

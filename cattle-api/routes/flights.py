@@ -164,6 +164,10 @@ def detect_frame(flight_id: str, frame_name: str, session: Session = Depends(get
     flight.detected_count = count
     session.add(flight)
     session.commit()
+
+    annotated_image_path = result.get("annotated_image_path")
+    generate_report(flight_id, [{"annotated_image_path": annotated_image_path}] if annotated_image_path else [])
+
     return {"count": count, "annotatedImageB64": result.get("annotatedImageB64")}
 
 
